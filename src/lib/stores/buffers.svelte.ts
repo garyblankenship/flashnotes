@@ -75,10 +75,16 @@ async function selectBuffer(id: string): Promise<void> {
   }
 }
 
-async function createBuffer(): Promise<string | null> {
+async function createBuffer(initialContent?: string): Promise<string | null> {
   try {
     lastError = null;
     const id = await invoke<string>('create_buffer');
+
+    // If initial content provided, save it immediately
+    if (initialContent) {
+      await invoke('save_buffer', { id, content: initialContent });
+    }
+
     await loadSidebarData();
     await selectBuffer(id);
     return id;

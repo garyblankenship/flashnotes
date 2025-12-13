@@ -68,13 +68,39 @@
     }
   }
 
+  const welcomeContent = `# Welcome to Flashnotes
+
+Your infinite-buffer scratchpad. No files, no saving—everything persists automatically.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| \`Cmd+Shift+Space\` | Toggle window (global) |
+| \`Cmd+P\` | Command palette |
+| \`Cmd+N\` | New buffer |
+| \`Cmd+E\` | Toggle markdown preview |
+| \`Cmd+,\` | Settings |
+| \`Escape\` | Clear search |
+
+## Tips
+
+- **Search** is instant—just start typing in the sidebar
+- **Pin** important buffers to keep them at the top
+- Buffers auto-save as you type (500ms debounce)
+- This buffer will close when you create a new one, or delete it anytime
+
+Happy writing!
+`;
+
   onMount(async () => {
     // Load settings first so fonts are ready
     await settingsStore.loadSettings();
     await bufferStore.loadSidebarData();
 
     if (bufferStore.sidebarBuffers.length === 0) {
-      await bufferStore.createBuffer();
+      // First run - create welcome buffer
+      await bufferStore.createBuffer(welcomeContent);
     } else {
       await bufferStore.selectBuffer(bufferStore.sidebarBuffers[0].id);
     }
