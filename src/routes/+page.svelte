@@ -49,6 +49,10 @@
     await bufferStore.deleteBuffer(id);
   }
 
+  async function handleTogglePin(id: string) {
+    await bufferStore.togglePin(id);
+  }
+
   function handlePaletteSelect(id: string) {
     bufferStore.selectBuffer(id);
     isPaletteOpen = false;
@@ -180,6 +184,7 @@ Happy writing!
     onSelect={handleSelectBuffer}
     onCreate={handleCreateBuffer}
     onDelete={handleDeleteBuffer}
+    onTogglePin={handleTogglePin}
   />
 
   <main class="flex-1 flex flex-col bg-[--bg-editor]">

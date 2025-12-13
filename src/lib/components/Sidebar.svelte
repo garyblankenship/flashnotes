@@ -13,6 +13,7 @@
     onSelect: (id: string) => void;
     onCreate: () => void;
     onDelete: (id: string) => void;
+    onTogglePin: (id: string) => void;
   }
 
   let {
@@ -25,6 +26,7 @@
     onSelect,
     onCreate,
     onDelete,
+    onTogglePin,
   }: Props = $props();
 
   let searchInput = $state('');
@@ -65,6 +67,7 @@
           isActive={buffer.id === activeBufferId}
           onSelect={() => onSelect(buffer.id)}
           onDelete={() => onDelete(buffer.id)}
+          onTogglePin={() => onTogglePin(buffer.id)}
         />
       {/each}
       {#if buffers.length === 0}
