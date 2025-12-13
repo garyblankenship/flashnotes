@@ -12,6 +12,7 @@
     onSearch: (query: string) => void;
     onSelect: (id: string) => void;
     onCreate: () => void;
+    onDelete: (id: string) => void;
   }
 
   let {
@@ -23,6 +24,7 @@
     onSearch,
     onSelect,
     onCreate,
+    onDelete,
   }: Props = $props();
 
   let searchInput = $state('');
@@ -62,6 +64,7 @@
           {buffer}
           isActive={buffer.id === activeBufferId}
           onSelect={() => onSelect(buffer.id)}
+          onDelete={() => onDelete(buffer.id)}
         />
       {/each}
       {#if buffers.length === 0}

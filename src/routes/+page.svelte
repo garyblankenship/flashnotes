@@ -45,6 +45,10 @@
     editorRef?.focus();
   }
 
+  async function handleDeleteBuffer(id: string) {
+    await bufferStore.deleteBuffer(id);
+  }
+
   function handlePaletteSelect(id: string) {
     bufferStore.selectBuffer(id);
     isPaletteOpen = false;
@@ -58,6 +62,11 @@
     } else if (e.key === 'n' && e.metaKey && !e.shiftKey) {
       e.preventDefault();
       handleCreateBuffer();
+    } else if (e.key === 'w' && e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      if (bufferStore.activeBufferId && confirm('Delete this buffer?')) {
+        handleDeleteBuffer(bufferStore.activeBufferId);
+      }
     } else if (e.key === ',' && e.metaKey) {
       e.preventDefault();
       isSettingsOpen = true;
@@ -81,6 +90,7 @@ Your infinite-buffer scratchpad. No files, no saving—everything persists autom
 | \`Cmd+Shift+Space\` | Toggle window (global) |
 | \`Cmd+P\` | Command palette |
 | \`Cmd+N\` | New buffer |
+| \`Cmd+W\` | Delete buffer |
 | \`Cmd+E\` | Toggle markdown preview |
 | \`Cmd+,\` | Settings |
 | \`Escape\` | Clear search |
@@ -132,9 +142,10 @@ Happy writing!
         if (count > 0 && bufferStore.sidebarBuffers.length > 0) {
           await bufferStore.selectBuffer(bufferStore.sidebarBuffers[0].id);
         }
-        console.log(`Imported ${count} buffers from Sublime`);
+        alert(count > 0 ? `Imported ${count} buffer${count === 1 ? '' : 's'} from Sublime Text` : 'No unsaved buffers found in Sublime Text');
       } catch (error) {
         console.error('Failed to import from Sublime:', error);
+        alert(`Import failed: ${error}`);
       }
     });
   });
@@ -168,6 +179,7 @@ Happy writing!
     onSearch={handleSearch}
     onSelect={handleSelectBuffer}
     onCreate={handleCreateBuffer}
+    onDelete={handleDeleteBuffer}
   />
 
   <main class="flex-1 flex flex-col bg-[--bg-editor]">
