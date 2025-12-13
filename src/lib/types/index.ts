@@ -21,4 +21,5 @@ export interface AppSettings {
   font_family: string;
   font_size: number;
   line_height: number;
+  preview_mode: boolean;
 }

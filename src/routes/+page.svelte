@@ -59,6 +59,9 @@
     } else if (e.key === ',' && e.metaKey) {
       e.preventDefault();
       isSettingsOpen = true;
+    } else if (e.key === 'e' && e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      settingsStore.togglePreviewMode();
     } else if (e.key === 'Escape' && !isPaletteOpen && !isSettingsOpen) {
       bufferStore.clearSearch();
       editorRef?.focus();
@@ -138,6 +141,7 @@
             bind:this={editorRef}
             content={bufferStore.activeContent}
             onchange={handleEditorChange}
+            previewMode={settingsStore.settings.preview_mode}
           />
         {/if}
       {:else}

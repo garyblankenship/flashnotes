@@ -6,13 +6,17 @@
   import { bracketMatching, indentOnInput } from '@codemirror/language';
   import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+  import { markdown } from '@codemirror/lang-markdown';
+  import { markdownPreviewPlugin } from '$lib/codemirror/markdown-preview';
+  import { markdownPreviewTheme } from '$lib/codemirror/markdown-styles';
 
   interface Props {
     content: string;
     onchange: (content: string) => void;
+    previewMode?: boolean;
   }
 
-  let { content, onchange }: Props = $props();
+  let { content, onchange, previewMode = false }: Props = $props();
 
   let container: HTMLDivElement;
   let view: EditorView | null = $state(null);
@@ -94,6 +98,7 @@
   }, { dark: true });
 
   const readOnlyCompartment = new Compartment();
+  const previewCompartment = new Compartment();
 
   onMount(() => {
     const extensions = [
@@ -122,6 +127,10 @@
           onchange(newContent);
         }
       }),
+      // Markdown language support (syntax highlighting)
+      markdown(),
+      // Preview mode extensions (toggleable)
+      previewCompartment.of(previewMode ? [markdownPreviewPlugin, markdownPreviewTheme] : []),
       readOnlyCompartment.of([]),
     ];
 
@@ -151,6 +160,17 @@
         },
       });
       isUpdatingFromProp = false;
+    }
+  });
+
+  // Toggle preview mode when prop changes
+  $effect(() => {
+    if (view) {
+      view.dispatch({
+        effects: previewCompartment.reconfigure(
+          previewMode ? [markdownPreviewPlugin, markdownPreviewTheme] : []
+        ),
+      });
     }
   });
 

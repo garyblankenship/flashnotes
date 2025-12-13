@@ -6,6 +6,7 @@ const defaults: AppSettings = {
   font_family: 'JetBrains Mono',
   font_size: 13,
   line_height: 1.5,
+  preview_mode: false,
 };
 
 // Available font options
@@ -72,6 +73,11 @@ function applyToDocument(): void {
   root.style.setProperty('--editor-line-height', String(settings.line_height));
 }
 
+// Toggle preview mode (client-side only, no backend persistence)
+function togglePreviewMode(): void {
+  settings = { ...settings, preview_mode: !settings.preview_mode };
+}
+
 // Export store
 export const settingsStore = {
   get settings() { return settings; },
@@ -80,4 +86,5 @@ export const settingsStore = {
 
   loadSettings,
   updateSetting,
+  togglePreviewMode,
 };
