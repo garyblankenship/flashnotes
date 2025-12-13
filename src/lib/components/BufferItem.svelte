@@ -14,9 +14,7 @@
 
   function handleDelete(e: MouseEvent) {
     e.stopPropagation();
-    if (confirm('Delete this buffer?')) {
-      onDelete();
-    }
+    onDelete();
   }
 
   function handleTogglePin(e: MouseEvent) {

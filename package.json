@@ -1,6 +1,6 @@
 {
   "name": "flashnotes",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "An infinite-buffer, database-backed scratchpad",
   "type": "module",
   "scripts": {
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:e2e": "./tests/test-buffer-ops.sh"
   },
   "license": "MIT",
   "dependencies": {

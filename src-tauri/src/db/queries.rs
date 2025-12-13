@@ -32,7 +32,7 @@ pub struct Buffer {
 }
 
 /// Extract title and preview from content
-fn extract_title_preview(content: &str) -> (String, String) {
+pub fn extract_title_preview(content: &str) -> (String, String) {
     let lines: Vec<&str> = content.lines().collect();
 
     let title = lines
@@ -52,14 +52,14 @@ fn extract_title_preview(content: &str) -> (String, String) {
     (title, preview)
 }
 
-/// Get sidebar buffers (non-archived, sorted by pinned then accessed_at)
+/// Get sidebar buffers (non-archived, sorted by pinned then sort_order then accessed_at)
 pub fn get_sidebar_buffers(conn: &Connection, limit: usize) -> Result<Vec<BufferSummary>> {
     let mut stmt = conn.prepare(
         "
         SELECT id, content, updated_at, is_pinned
         FROM buffers
         WHERE is_archived = 0
-        ORDER BY is_pinned DESC, accessed_at DESC
+        ORDER BY is_pinned DESC, sort_order ASC, accessed_at DESC
         LIMIT ?
         "
     )?;
@@ -188,17 +188,21 @@ pub fn touch_buffer(conn: &Connection, id: &str, timestamp: i64) -> Result<bool>
     Ok(rows_affected > 0)
 }
 
-/// Archive a buffer (soft delete)
-pub fn archive_buffer(conn: &Connection, id: &str) -> Result<bool> {
-    let rows_affected = conn.execute(
-        "
-        UPDATE buffers
-        SET is_archived = 1
-        WHERE id = ?
-        ",
-        params![id],
+/// Get the next buffer ID (for selection after delete)
+pub fn get_next_buffer_id(conn: &Connection, current_id: &str) -> Result<Option<String>> {
+    // Get first non-archived buffer that isn't the one being deleted
+    let mut stmt = conn.prepare(
+        "SELECT id FROM buffers
+         WHERE is_archived = 0 AND id != ?
+         ORDER BY is_pinned DESC, sort_order ASC, accessed_at DESC
+         LIMIT 1"
     )?;
-    Ok(rows_affected > 0)
+
+    match stmt.query_row([current_id], |row| row.get(0)) {
+        Ok(id) => Ok(Some(id)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 /// Permanently delete a buffer
@@ -210,28 +214,38 @@ pub fn delete_buffer(conn: &Connection, id: &str) -> Result<bool> {
     Ok(rows_affected > 0)
 }
 
-/// Toggle pin status
+/// Toggle pin status and return new state
 pub fn toggle_pin(conn: &Connection, id: &str) -> Result<bool> {
-    let rows_affected = conn.execute(
-        "
-        UPDATE buffers
-        SET is_pinned = NOT is_pinned
-        WHERE id = ?
-        ",
+    conn.execute(
+        "UPDATE buffers SET is_pinned = NOT is_pinned WHERE id = ?",
         params![id],
     )?;
-    Ok(rows_affected > 0)
+    // Return the new pin state
+    conn.query_row(
+        "SELECT is_pinned FROM buffers WHERE id = ?",
+        params![id],
+        |row| Ok(row.get::<_, i64>(0)? != 0),
+    )
 }
 
-/// Get buffer count
-pub fn get_buffer_count(conn: &Connection, include_archived: bool) -> Result<i64> {
-    let query = if include_archived {
-        "SELECT COUNT(*) FROM buffers"
-    } else {
-        "SELECT COUNT(*) FROM buffers WHERE is_archived = 0"
-    };
+/// Reorder buffers by setting sort_order based on provided ID list
+pub fn reorder_buffers(conn: &Connection, ids: &[String]) -> Result<()> {
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE buffers SET sort_order = ? WHERE id = ?",
+            params![index as i64, id],
+        )?;
+    }
+    Ok(())
+}
 
-    conn.query_row(query, [], |row| row.get(0))
+/// Delete all empty buffers (content is empty or whitespace only)
+pub fn delete_empty_buffers(conn: &Connection) -> Result<usize> {
+    let rows_affected = conn.execute(
+        "DELETE FROM buffers WHERE TRIM(content) = '' AND is_archived = 0",
+        [],
+    )?;
+    Ok(rows_affected)
 }
 
 /// App settings

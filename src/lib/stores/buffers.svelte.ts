@@ -1,181 +1,192 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BufferSummary, SearchResult } from '$lib/types';
 
-// Reactive state using Svelte 5 runes
-let sidebarBuffers = $state<BufferSummary[]>([]);
-let searchResults = $state<SearchResult[]>([]);
-let searchQuery = $state('');
-let activeBufferId = $state<string | null>(null);
-let activeContent = $state('');
-let isDirty = $state(false);
-let isLoading = $state(false);
-let bufferCount = $state(0);
-let lastError = $state<string | null>(null);
+// Class-based reactive store for Svelte 5
+class BufferStore {
+  sidebarBuffers = $state<BufferSummary[]>([]);
+  searchResults = $state<SearchResult[]>([]);
+  searchQuery = $state('');
+  activeBufferId = $state<string | null>(null);
+  activeContent = $state('');
+  isDirty = $state(false);
+  isLoading = $state(false);
+  lastError = $state<string | null>(null);
 
-// Derived state
-const displayList = $derived(searchQuery.length > 0 ? searchResults : sidebarBuffers);
-const isSearching = $derived(searchQuery.length > 0);
+  // Derived state
+  displayList = $derived(this.searchQuery.length > 0 ? this.searchResults : this.sidebarBuffers);
+  isSearching = $derived(this.searchQuery.length > 0);
+  bufferCount = $derived(this.sidebarBuffers.length);
 
-// Error handling utility
-function handleError(message: string, error: unknown): void {
-  const errorMsg = error instanceof Error ? error.message : String(error);
-  lastError = `${message}: ${errorMsg}`;
-  console.error(lastError);
-}
-
-// Actions
-async function loadSidebarData(): Promise<void> {
-  try {
-    lastError = null;
-    sidebarBuffers = await invoke<BufferSummary[]>('get_sidebar_data');
-    bufferCount = sidebarBuffers.length;
-  } catch (error) {
-    handleError('Failed to load sidebar data', error);
+  // Error handling utility
+  private handleError(message: string, error: unknown): void {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    this.lastError = `${message}: ${errorMsg}`;
+    console.error(this.lastError);
   }
-}
-
-async function searchBuffers(query: string): Promise<void> {
-  searchQuery = query;
-  if (query.length > 0) {
-    try {
-      lastError = null;
-      searchResults = await invoke<SearchResult[]>('search_buffers', { query });
-    } catch (error) {
-      handleError('Failed to search buffers', error);
-      searchResults = [];
-    }
-  } else {
-    searchResults = [];
-  }
-}
-
-function clearSearch(): void {
-  searchQuery = '';
-  searchResults = [];
-}
-
-async function selectBuffer(id: string): Promise<void> {
-  if (id === activeBufferId) return;
-
-  // Save current buffer if dirty before switching
-  if (isDirty && activeBufferId) {
-    await saveCurrentBuffer();
-  }
-
-  try {
-    isLoading = true;
-    lastError = null;
-    activeContent = await invoke<string>('get_buffer_content', { id });
-    activeBufferId = id;
-    isDirty = false;
-  } catch (error) {
-    handleError('Failed to get buffer content', error);
-  } finally {
-    isLoading = false;
-  }
-}
-
-async function createBuffer(initialContent?: string): Promise<string | null> {
-  try {
-    lastError = null;
-    const id = await invoke<string>('create_buffer');
-
-    // If initial content provided, save it immediately
-    if (initialContent) {
-      await invoke('save_buffer', { id, content: initialContent });
-    }
-
-    await loadSidebarData();
-    await selectBuffer(id);
-    return id;
-  } catch (error) {
-    handleError('Failed to create buffer', error);
-    return null;
-  }
-}
-
-async function saveCurrentBuffer(): Promise<void> {
-  if (!activeBufferId || !isDirty) return;
-
-  try {
-    lastError = null;
-    await invoke('save_buffer', { id: activeBufferId, content: activeContent });
-    isDirty = false;
-    await loadSidebarData();
-  } catch (error) {
-    handleError('Failed to save buffer', error);
-  }
-}
-
-function updateContent(content: string): void {
-  if (content !== activeContent) {
-    activeContent = content;
-    isDirty = true;
-  }
-}
-
-async function archiveBuffer(id: string): Promise<void> {
-  try {
-    lastError = null;
-    await invoke('archive_buffer', { id });
-    if (activeBufferId === id) {
-      activeBufferId = null;
-      activeContent = '';
-    }
-    await loadSidebarData();
-  } catch (error) {
-    handleError('Failed to archive buffer', error);
-  }
-}
-
-async function deleteBuffer(id: string): Promise<void> {
-  try {
-    lastError = null;
-    await invoke('delete_buffer_permanently', { id });
-    if (activeBufferId === id) {
-      activeBufferId = null;
-      activeContent = '';
-    }
-    await loadSidebarData();
-  } catch (error) {
-    handleError('Failed to delete buffer', error);
-  }
-}
-
-async function togglePin(id: string): Promise<void> {
-  try {
-    lastError = null;
-    await invoke('toggle_pin', { id });
-    await loadSidebarData();
-  } catch (error) {
-    handleError('Failed to toggle pin', error);
-  }
-}
-
-// Export store as object with getters for reactive access
-export const bufferStore = {
-  // Reactive getters
-  get sidebarBuffers() { return sidebarBuffers; },
-  get searchResults() { return searchResults; },
-  get searchQuery() { return searchQuery; },
-  get activeBufferId() { return activeBufferId; },
-  get activeContent() { return activeContent; },
-  get isDirty() { return isDirty; },
-  get isLoading() { return isLoading; },
-  get bufferCount() { return bufferCount; },
-  get lastError() { return lastError; },
-  get displayList() { return displayList; },
-  get isSearching() { return isSearching; },
 
   // Actions
-  loadSidebarData,
-  searchBuffers,
-  clearSearch,
-  selectBuffer,
-  createBuffer,
-  saveCurrentBuffer,
-  updateContent,
-  archiveBuffer,
-  deleteBuffer,
-  togglePin,
-};
+  async loadSidebarData(): Promise<void> {
+    try {
+      this.lastError = null;
+      this.sidebarBuffers = await invoke<BufferSummary[]>('get_sidebar_data');
+    } catch (error) {
+      this.handleError('Failed to load sidebar data', error);
+    }
+  }
+
+  async searchBuffers(query: string): Promise<void> {
+    this.searchQuery = query;
+    if (query.length > 0) {
+      try {
+        this.lastError = null;
+        this.searchResults = await invoke<SearchResult[]>('search_buffers', { query });
+      } catch (error) {
+        this.handleError('Failed to search buffers', error);
+        this.searchResults = [];
+      }
+    } else {
+      this.searchResults = [];
+    }
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.searchResults = [];
+  }
+
+  async selectBuffer(id: string): Promise<void> {
+    if (id === this.activeBufferId) return;
+
+    // Save current buffer if dirty before switching
+    if (this.isDirty && this.activeBufferId) {
+      await this.saveCurrentBuffer();
+    }
+
+    try {
+      this.isLoading = true;
+      this.lastError = null;
+      this.activeContent = await invoke<string>('get_buffer_content', { id });
+      this.activeBufferId = id;
+      this.isDirty = false;
+    } catch (error) {
+      this.handleError('Failed to get buffer content', error);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async createBuffer(initialContent?: string): Promise<string | null> {
+    try {
+      this.lastError = null;
+      // Backend creates buffer and returns summary in one call
+      const summary = await invoke<BufferSummary>('create_buffer', {
+        content: initialContent ?? null
+      });
+
+      // Update UI directly - no refetch needed
+      this.sidebarBuffers = [summary, ...this.sidebarBuffers];
+      this.activeBufferId = summary.id;
+      this.activeContent = initialContent ?? '';
+      this.isDirty = false;
+
+      return summary.id;
+    } catch (error) {
+      this.handleError('Failed to create buffer', error);
+      return null;
+    }
+  }
+
+  async saveCurrentBuffer(): Promise<void> {
+    if (!this.activeBufferId || !this.isDirty) return;
+
+    try {
+      this.lastError = null;
+      // Backend returns new title/preview
+      const [title, preview] = await invoke<[string, string]>('save_buffer', {
+        id: this.activeBufferId,
+        content: this.activeContent
+      });
+      this.isDirty = false;
+
+      // Update sidebar locally - no refetch needed
+      this.sidebarBuffers = this.sidebarBuffers.map(b =>
+        b.id === this.activeBufferId
+          ? { ...b, title, preview, updated_at: Date.now() / 1000 }
+          : b
+      );
+    } catch (error) {
+      this.handleError('Failed to save buffer', error);
+    }
+  }
+
+  updateContent(content: string): void {
+    if (content !== this.activeContent) {
+      this.activeContent = content;
+      this.isDirty = true;
+    }
+  }
+
+  async deleteBuffer(id: string): Promise<void> {
+    try {
+      this.lastError = null;
+      const wasActive = this.activeBufferId === id;
+
+      // Delete and get next buffer to select
+      const nextId = await invoke<string | null>('delete_buffer', { id });
+
+      // Update sidebar locally
+      this.sidebarBuffers = this.sidebarBuffers.filter(b => b.id !== id);
+
+      // Select next buffer if we deleted the active one
+      if (wasActive) {
+        if (nextId) {
+          await this.selectBuffer(nextId);
+        } else {
+          this.activeBufferId = null;
+          this.activeContent = '';
+          this.isDirty = false;
+        }
+      }
+    } catch (error) {
+      this.handleError('Failed to delete buffer', error);
+      throw error;
+    }
+  }
+
+  async togglePin(id: string): Promise<void> {
+    try {
+      this.lastError = null;
+      // Backend returns new pin state
+      const isPinned = await invoke<boolean>('toggle_pin', { id });
+
+      // Update locally and re-sort (pinned items first)
+      this.sidebarBuffers = this.sidebarBuffers
+        .map(b => b.id === id ? { ...b, is_pinned: isPinned } : b)
+        .sort((a, b) => {
+          if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+          return 0; // Keep relative order otherwise
+        });
+    } catch (error) {
+      this.handleError('Failed to toggle pin', error);
+    }
+  }
+
+  async reorderBuffers(ids: string[]): Promise<void> {
+    try {
+      this.lastError = null;
+      // Update UI immediately (optimistic update)
+      const idToBuffer = new Map(this.sidebarBuffers.map(b => [b.id, b]));
+      this.sidebarBuffers = ids.map(id => idToBuffer.get(id)!).filter(Boolean);
+
+      // Persist to backend (no refetch needed)
+      await invoke('reorder_buffers', { ids });
+    } catch (error) {
+      this.handleError('Failed to reorder buffers', error);
+      // Refetch on error to restore correct state
+      await this.loadSidebarData();
+    }
+  }
+}
+
+// Export singleton instance
+export const bufferStore = new BufferStore();

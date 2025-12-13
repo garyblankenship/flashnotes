@@ -12,11 +12,18 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             updated_at INTEGER NOT NULL,
             accessed_at INTEGER NOT NULL,
             is_archived INTEGER DEFAULT 0,
-            is_pinned INTEGER DEFAULT 0
+            is_pinned INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0
         );
         ",
         [],
     )?;
+
+    // Migration: Add sort_order column if it doesn't exist
+    conn.execute(
+        "ALTER TABLE buffers ADD COLUMN sort_order INTEGER DEFAULT 0",
+        [],
+    ).ok(); // Ignore error if column already exists
 
     // Create settings table (key-value store)
     conn.execute(

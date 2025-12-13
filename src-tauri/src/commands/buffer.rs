@@ -14,27 +14,40 @@ fn now() -> i64 {
     Utc::now().timestamp()
 }
 
-/// Create a new buffer and return its ID
+/// Create a new buffer with optional content, return summary for immediate UI update
 #[tauri::command]
-pub fn create_buffer(state: State<'_, AppState>) -> Result<String, String> {
+pub fn create_buffer(state: State<'_, AppState>, content: Option<String>) -> Result<BufferSummary, String> {
     let id = Uuid::new_v4().to_string();
+    let content = content.unwrap_or_default();
+    let timestamp = now();
     let conn = state.db.lock();
+
     map_db_error(
-        queries::create_buffer(&conn, &id, "", now()),
+        queries::create_buffer(&conn, &id, &content, timestamp),
         "Failed to create buffer",
     )?;
-    Ok(id)
+
+    // Return summary for immediate UI update (no refetch needed)
+    let (title, preview) = queries::extract_title_preview(&content);
+    Ok(BufferSummary {
+        id,
+        title,
+        preview,
+        updated_at: timestamp,
+        is_pinned: false,
+    })
 }
 
-/// Save buffer content
+/// Save buffer content and return updated title/preview for sidebar
 #[tauri::command]
-pub fn save_buffer(state: State<'_, AppState>, id: String, content: String) -> Result<(), String> {
+pub fn save_buffer(state: State<'_, AppState>, id: String, content: String) -> Result<(String, String), String> {
     let conn = state.db.lock();
     map_db_error(
         queries::update_buffer_content(&conn, &id, &content, now()),
         "Failed to save buffer",
     )?;
-    Ok(())
+    // Return new title/preview so frontend can update sidebar without refetch
+    Ok(queries::extract_title_preview(&content))
 }
 
 /// Get buffer content by ID
@@ -78,91 +91,103 @@ pub fn search_buffers(state: State<'_, AppState>, query: String) -> Result<Vec<S
     )
 }
 
-/// Archive a buffer (soft delete)
+/// Delete a buffer and return the next buffer ID to select (if any)
 #[tauri::command]
-pub fn archive_buffer(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn delete_buffer(state: State<'_, AppState>, id: String) -> Result<Option<String>, String> {
     let conn = state.db.lock();
-    map_db_error(queries::archive_buffer(&conn, &id), "Failed to archive buffer")?;
-    Ok(())
-}
 
-/// Permanently delete a buffer
-#[tauri::command]
-pub fn delete_buffer_permanently(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let conn = state.db.lock();
+    // Get next buffer before deleting
+    let next_id = map_db_error(
+        queries::get_next_buffer_id(&conn, &id),
+        "Failed to get next buffer",
+    )?;
+
+    // Delete the buffer
     map_db_error(queries::delete_buffer(&conn, &id), "Failed to delete buffer")?;
-    Ok(())
+
+    Ok(next_id)
 }
 
-/// Toggle pin status
+/// Toggle pin status and return new state
 #[tauri::command]
-pub fn toggle_pin(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn toggle_pin(state: State<'_, AppState>, id: String) -> Result<bool, String> {
     let conn = state.db.lock();
-    map_db_error(queries::toggle_pin(&conn, &id), "Failed to toggle pin")?;
-    Ok(())
+    map_db_error(queries::toggle_pin(&conn, &id), "Failed to toggle pin")
 }
 
-/// Get total buffer count
+/// Reorder buffers by setting sort_order
 #[tauri::command]
-pub fn get_buffer_count(state: State<'_, AppState>) -> Result<i64, String> {
+pub fn reorder_buffers(state: State<'_, AppState>, ids: Vec<String>) -> Result<(), String> {
     let conn = state.db.lock();
     map_db_error(
-        queries::get_buffer_count(&conn, false),
-        "Failed to get buffer count",
+        queries::reorder_buffers(&conn, &ids),
+        "Failed to reorder buffers",
+    )?;
+    Ok(())
+}
+
+/// Delete all empty buffers
+#[tauri::command]
+pub fn cleanup_empty_buffers(state: State<'_, AppState>) -> Result<usize, String> {
+    let conn = state.db.lock();
+    map_db_error(
+        queries::delete_empty_buffers(&conn),
+        "Failed to cleanup empty buffers",
     )
+}
+
+/// Get path to Sublime Text session file
+fn get_sublime_session_path() -> Result<std::path::PathBuf, String> {
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    Ok(home
+        .join("Library")
+        .join("Application Support")
+        .join("Sublime Text")
+        .join("Local")
+        .join("Session.sublime_session"))
+}
+
+/// Extract buffer contents from Sublime session JSON
+fn extract_sublime_buffers(session: &serde_json::Value) -> Vec<&str> {
+    session
+        .get("buffers")
+        .and_then(|b| b.as_array())
+        .map(|buffers| {
+            buffers
+                .iter()
+                .filter_map(|buf| {
+                    buf.get("contents")
+                        .or_else(|| buf.get("content"))
+                        .and_then(|c| c.as_str())
+                        .filter(|s| !s.trim().is_empty())
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Import buffers from Sublime Text session file
 #[tauri::command]
 pub fn import_sublime_buffers(state: State<'_, AppState>) -> Result<usize, String> {
     use std::fs;
-    use serde_json::Value;
 
-    // Build path to Sublime session file
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let session_path = home
-        .join("Library")
-        .join("Application Support")
-        .join("Sublime Text")
-        .join("Local")
-        .join("Session.sublime_session");
-
-    // Read and parse session file
+    let session_path = get_sublime_session_path()?;
     let content = fs::read_to_string(&session_path)
         .map_err(|e| format!("Failed to read Sublime session file: {}", e))?;
 
-    let session: Value = serde_json::from_str(&content)
+    let session: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse Sublime session JSON: {}", e))?;
 
-    // Extract buffers array
-    let buffers = session
-        .get("buffers")
-        .and_then(|b| b.as_array())
-        .ok_or("No buffers found in Sublime session")?;
-
+    let buffer_contents = extract_sublime_buffers(&session);
     let conn = state.db.lock();
     let mut imported = 0;
 
-    for buffer in buffers {
-        // Try both "contents" and "content" field names
-        let buffer_content = buffer
-            .get("contents")
-            .or_else(|| buffer.get("content"))
-            .and_then(|c| c.as_str())
-            .unwrap_or("");
-
-        // Skip empty buffers
-        if buffer_content.trim().is_empty() {
-            continue;
-        }
-
-        // Create new buffer with content
+    for buffer_content in buffer_contents {
         let id = Uuid::new_v4().to_string();
         map_db_error(
             queries::create_buffer(&conn, &id, buffer_content, now()),
             "Failed to create imported buffer",
         )?;
-
         imported += 1;
     }
 

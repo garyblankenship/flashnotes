@@ -53,6 +53,10 @@
     await bufferStore.togglePin(id);
   }
 
+  async function handleReorder(ids: string[]) {
+    await bufferStore.reorderBuffers(ids);
+  }
+
   function handlePaletteSelect(id: string) {
     bufferStore.selectBuffer(id);
     isPaletteOpen = false;
@@ -68,7 +72,7 @@
       handleCreateBuffer();
     } else if (e.key === 'w' && e.metaKey && !e.shiftKey) {
       e.preventDefault();
-      if (bufferStore.activeBufferId && confirm('Delete this buffer?')) {
+      if (bufferStore.activeBufferId) {
         handleDeleteBuffer(bufferStore.activeBufferId);
       }
     } else if (e.key === ',' && e.metaKey) {
@@ -83,7 +87,8 @@
     }
   }
 
-  const welcomeContent = `# Welcome to Flashnotes
+  // Welcome content for first-run experience
+  const WELCOME_CONTENT = `# Welcome to Flashnotes
 
 Your infinite-buffer scratchpad. No files, no saving—everything persists automatically.
 
@@ -116,17 +121,22 @@ Happy writing!
 
     if (bufferStore.sidebarBuffers.length === 0) {
       // First run - create welcome buffer
-      await bufferStore.createBuffer(welcomeContent);
+      await bufferStore.createBuffer(WELCOME_CONTENT);
     } else {
       await bufferStore.selectBuffer(bufferStore.sidebarBuffers[0].id);
     }
 
-    // Safety net: save on blur
+    // Safety net: save on blur and cleanup empty buffers
     try {
       const appWindow = getCurrentWindow();
-      appWindow.onFocusChanged(({ payload: focused }) => {
-        if (!focused && bufferStore.isDirty) {
-          bufferStore.saveCurrentBuffer();
+      appWindow.onFocusChanged(async ({ payload: focused }) => {
+        if (!focused) {
+          if (bufferStore.isDirty) {
+            await bufferStore.saveCurrentBuffer();
+          }
+          // Cleanup empty buffers when app loses focus
+          await invoke('cleanup_empty_buffers');
+          await bufferStore.loadSidebarData();
         }
       });
     } catch (error) {
@@ -143,8 +153,10 @@ Happy writing!
       try {
         const count = await invoke<number>('import_sublime_buffers');
         await bufferStore.loadSidebarData();
-        if (count > 0 && bufferStore.sidebarBuffers.length > 0) {
-          await bufferStore.selectBuffer(bufferStore.sidebarBuffers[0].id);
+        // Use store directly since we're in a callback
+        const currentBuffers = bufferStore.sidebarBuffers;
+        if (count > 0 && currentBuffers.length > 0) {
+          await bufferStore.selectBuffer(currentBuffers[0].id);
         }
         alert(count > 0 ? `Imported ${count} buffer${count === 1 ? '' : 's'} from Sublime Text` : 'No unsaved buffers found in Sublime Text');
       } catch (error) {
@@ -175,16 +187,12 @@ Happy writing!
 
 <div class="h-screen w-screen flex font-mono text-sm antialiased bg-[--bg-app] text-[--text-main]">
   <Sidebar
-    buffers={bufferStore.sidebarBuffers}
-    searchResults={bufferStore.searchResults}
-    searchQuery={bufferStore.searchQuery}
-    activeBufferId={bufferStore.activeBufferId}
-    bufferCount={bufferStore.bufferCount}
     onSearch={handleSearch}
     onSelect={handleSelectBuffer}
     onCreate={handleCreateBuffer}
     onDelete={handleDeleteBuffer}
     onTogglePin={handleTogglePin}
+    onReorder={handleReorder}
   />
 
   <main class="flex-1 flex flex-col bg-[--bg-editor]">

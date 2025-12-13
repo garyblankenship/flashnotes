@@ -19,9 +19,11 @@ pub fn get_db_path(app: &AppHandle) -> PathBuf {
 pub fn create_connection(path: &PathBuf) -> Result<Connection> {
     let conn = Connection::open(path)?;
 
-    // Critical PRAGMA settings for performance
+    // Critical PRAGMA settings for performance and FTS triggers
     conn.execute_batch(
         "
+        -- Allow FTS triggers to write to virtual tables
+        PRAGMA trusted_schema = ON;
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
@@ -41,6 +43,7 @@ pub fn create_memory_connection() -> Result<Connection> {
 
     conn.execute_batch(
         "
+        PRAGMA trusted_schema = ON;
         PRAGMA foreign_keys = ON;
         PRAGMA temp_store = MEMORY;
         ",

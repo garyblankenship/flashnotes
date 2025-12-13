@@ -5,7 +5,7 @@ mod state;
 
 use state::AppState;
 use tauri::Manager;
-use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem};
+use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem, AboutMetadata};
 use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,8 +36,14 @@ pub fn run() {
             // Build macOS menu bar
             #[cfg(target_os = "macos")]
             {
+                let about_metadata = AboutMetadata {
+                    website: Some("https://github.com/garyblankenship/flashnotes".into()),
+                    website_label: Some("GitHub".into()),
+                    ..Default::default()
+                };
+
                 let app_menu = SubmenuBuilder::new(app, "Flashnotes")
-                    .item(&PredefinedMenuItem::about(app, Some("About Flashnotes"), None)?)
+                    .item(&PredefinedMenuItem::about(app, Some("About Flashnotes"), Some(about_metadata))?)
                     .separator()
                     .item(&PredefinedMenuItem::hide(app, Some("Hide Flashnotes"))?)
                     .item(&PredefinedMenuItem::hide_others(app, Some("Hide Others"))?)
@@ -67,11 +73,16 @@ pub fn run() {
                     .item(&PredefinedMenuItem::close_window(app, Some("Close"))?)
                     .build()?;
 
+                let help_menu = SubmenuBuilder::new(app, "Help")
+                    .item(&MenuItem::with_id(app, "github", "GitHub Repository", true, None::<&str>)?)
+                    .build()?;
+
                 let menu = MenuBuilder::new(app)
                     .item(&app_menu)
                     .item(&file_menu)
                     .item(&edit_menu)
                     .item(&window_menu)
+                    .item(&help_menu)
                     .build()?;
 
                 app.set_menu(menu)?;
@@ -79,10 +90,16 @@ pub fn run() {
 
             // Handle menu events
             app.on_menu_event(|app_handle, event| {
-                if event.id().0 == "import_sublime" {
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.emit("import-sublime", ());
+                match event.id().0.as_str() {
+                    "import_sublime" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.emit("import-sublime", ());
+                        }
                     }
+                    "github" => {
+                        let _ = tauri_plugin_opener::open_url("https://github.com/garyblankenship/flashnotes", None::<&str>);
+                    }
+                    _ => {}
                 }
             });
 
@@ -100,13 +117,13 @@ pub fn run() {
             commands::get_buffer_content,
             commands::get_sidebar_data,
             commands::search_buffers,
-            commands::archive_buffer,
-            commands::delete_buffer_permanently,
+            commands::delete_buffer,
             commands::toggle_pin,
-            commands::get_buffer_count,
             commands::get_settings,
             commands::set_setting,
             commands::import_sublime_buffers,
+            commands::reorder_buffers,
+            commands::cleanup_empty_buffers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running flashnotes");
