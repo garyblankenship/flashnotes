@@ -118,9 +118,9 @@ pub fn toggle_pin(state: State<'_, AppState>, id: String) -> Result<bool, String
 /// Reorder buffers by setting sort_order
 #[tauri::command]
 pub fn reorder_buffers(state: State<'_, AppState>, ids: Vec<String>) -> Result<(), String> {
-    let conn = state.db.lock();
+    let mut conn = state.db.lock();
     map_db_error(
-        queries::reorder_buffers(&conn, &ids),
+        queries::reorder_buffers(&mut conn, &ids),
         "Failed to reorder buffers",
     )?;
     Ok(())

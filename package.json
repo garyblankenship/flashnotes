@@ -1,6 +1,6 @@
 {
   "name": "flashnotes",
-  "version": "0.1.3",
+  "version": "0.1.14",
   "description": "An infinite-buffer, database-backed scratchpad",
   "type": "module",
   "scripts": {

@@ -5,12 +5,12 @@
   interface Props {
     buffer: BufferSummary;
     isActive: boolean;
-    onSelect: () => void;
+    isDragging?: boolean;
     onDelete: () => void;
     onTogglePin: () => void;
   }
 
-  let { buffer, isActive, onSelect, onDelete, onTogglePin }: Props = $props();
+  let { buffer, isActive, isDragging = false, onDelete, onTogglePin }: Props = $props();
 
   function handleDelete(e: MouseEvent) {
     e.stopPropagation();
@@ -24,14 +24,11 @@
 </script>
 
 <div
-  class="group w-full text-left px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-[--bg-active] transition-colors"
+  class="group w-full text-left px-4 py-2 flex items-center justify-between hover:bg-[--bg-active] transition-colors"
   class:bg-[--bg-active]={isActive}
   class:border-l-2={isActive}
   class:border-[--accent]={isActive}
-  onclick={onSelect}
-  onkeydown={(e) => e.key === 'Enter' && onSelect()}
-  role="button"
-  tabindex="0"
+  style:pointer-events={isDragging ? 'none' : 'auto'}
 >
   <div class="flex-1 min-w-0">
     <div class="truncate text-[13px]" class:font-medium={isActive}>

@@ -1,6 +1,30 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BufferSummary, SearchResult } from '$lib/types';
 
+// Extract title and preview from content (mirrors backend logic)
+function extractTitlePreview(content: string): { title: string; preview: string } {
+  const lines = content.split('\n');
+
+  const titleLine = lines.find(line => line.trim().length > 0);
+  const title = titleLine?.trim().slice(0, 100) || 'Untitled';
+
+  // Find first non-empty line after title
+  let foundTitle = false;
+  let preview = '';
+  for (const line of lines) {
+    if (!foundTitle) {
+      if (line.trim().length > 0) foundTitle = true;
+      continue;
+    }
+    if (line.trim().length > 0) {
+      preview = line.trim().slice(0, 100);
+      break;
+    }
+  }
+
+  return { title, preview };
+}
+
 // Class-based reactive store for Svelte 5
 class BufferStore {
   sidebarBuffers = $state<BufferSummary[]>([]);
@@ -123,6 +147,14 @@ class BufferStore {
     if (content !== this.activeContent) {
       this.activeContent = content;
       this.isDirty = true;
+
+      // Update sidebar title/preview immediately (optimistic)
+      if (this.activeBufferId) {
+        const { title, preview } = extractTitlePreview(content);
+        this.sidebarBuffers = this.sidebarBuffers.map(b =>
+          b.id === this.activeBufferId ? { ...b, title, preview } : b
+        );
+      }
     }
   }
 
@@ -185,6 +217,37 @@ class BufferStore {
       // Refetch on error to restore correct state
       await this.loadSidebarData();
     }
+  }
+
+  // Move active buffer up in the list (Cmd+Shift+↑)
+  async moveBufferUp(): Promise<boolean> {
+    if (!this.activeBufferId) return false;
+
+    const index = this.sidebarBuffers.findIndex(b => b.id === this.activeBufferId);
+    // Can't move up if first, pinned, or buffer above is pinned
+    if (index <= 0) return false;
+    if (this.sidebarBuffers[index].is_pinned) return false;
+    if (this.sidebarBuffers[index - 1].is_pinned) return false;
+
+    const ids = this.sidebarBuffers.map(b => b.id);
+    [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
+    await this.reorderBuffers(ids);
+    return true;
+  }
+
+  // Move active buffer down in the list (Cmd+Shift+↓)
+  async moveBufferDown(): Promise<boolean> {
+    if (!this.activeBufferId) return false;
+
+    const index = this.sidebarBuffers.findIndex(b => b.id === this.activeBufferId);
+    // Can't move down if last or pinned
+    if (index === -1 || index >= this.sidebarBuffers.length - 1) return false;
+    if (this.sidebarBuffers[index].is_pinned) return false;
+
+    const ids = this.sidebarBuffers.map(b => b.id);
+    [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
+    await this.reorderBuffers(ids);
+    return true;
   }
 }
 

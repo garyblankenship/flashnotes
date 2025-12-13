@@ -81,6 +81,12 @@
     } else if (e.key === 'e' && e.metaKey && !e.shiftKey) {
       e.preventDefault();
       settingsStore.togglePreviewMode();
+    } else if (e.key === 'ArrowUp' && e.metaKey && e.shiftKey) {
+      e.preventDefault();
+      bufferStore.moveBufferUp();
+    } else if (e.key === 'ArrowDown' && e.metaKey && e.shiftKey) {
+      e.preventDefault();
+      bufferStore.moveBufferDown();
     } else if (e.key === 'Escape' && !isPaletteOpen && !isSettingsOpen) {
       bufferStore.clearSearch();
       editorRef?.focus();
@@ -100,6 +106,7 @@ Your infinite-buffer scratchpad. No files, no saving—everything persists autom
 | \`Cmd+P\` | Command palette |
 | \`Cmd+N\` | New buffer |
 | \`Cmd+W\` | Delete buffer |
+| \`Cmd+Shift+↑/↓\` | Move buffer up/down |
 | \`Cmd+E\` | Toggle markdown preview |
 | \`Cmd+,\` | Settings |
 | \`Escape\` | Clear search |
@@ -107,9 +114,10 @@ Your infinite-buffer scratchpad. No files, no saving—everything persists autom
 ## Tips
 
 - **Search** is instant—just start typing in the sidebar
+- **Drag** buffers to reorder them, or use \`Cmd+Shift+↑/↓\`
 - **Pin** important buffers to keep them at the top
-- Buffers auto-save as you type (500ms debounce)
-- This buffer will close when you create a new one, or delete it anytime
+- Buffers auto-save as you type
+- Only one instance of Flashnotes can run at a time
 
 Happy writing!
 `;
