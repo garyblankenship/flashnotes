@@ -111,3 +111,60 @@ pub fn get_buffer_count(state: State<'_, AppState>) -> Result<i64, String> {
         "Failed to get buffer count",
     )
 }
+
+/// Import buffers from Sublime Text session file
+#[tauri::command]
+pub fn import_sublime_buffers(state: State<'_, AppState>) -> Result<usize, String> {
+    use std::fs;
+    use serde_json::Value;
+
+    // Build path to Sublime session file
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let session_path = home
+        .join("Library")
+        .join("Application Support")
+        .join("Sublime Text")
+        .join("Local")
+        .join("Session.sublime_session");
+
+    // Read and parse session file
+    let content = fs::read_to_string(&session_path)
+        .map_err(|e| format!("Failed to read Sublime session file: {}", e))?;
+
+    let session: Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse Sublime session JSON: {}", e))?;
+
+    // Extract buffers array
+    let buffers = session
+        .get("buffers")
+        .and_then(|b| b.as_array())
+        .ok_or("No buffers found in Sublime session")?;
+
+    let conn = state.db.lock();
+    let mut imported = 0;
+
+    for buffer in buffers {
+        // Try both "contents" and "content" field names
+        let buffer_content = buffer
+            .get("contents")
+            .or_else(|| buffer.get("content"))
+            .and_then(|c| c.as_str())
+            .unwrap_or("");
+
+        // Skip empty buffers
+        if buffer_content.trim().is_empty() {
+            continue;
+        }
+
+        // Create new buffer with content
+        let id = Uuid::new_v4().to_string();
+        map_db_error(
+            queries::create_buffer(&conn, &id, buffer_content, now()),
+            "Failed to create imported buffer",
+        )?;
+
+        imported += 1;
+    }
+
+    Ok(imported)
+}

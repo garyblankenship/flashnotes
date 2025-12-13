@@ -5,7 +5,8 @@ mod state;
 
 use state::AppState;
 use tauri::Manager;
-use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem};
+use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem};
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -45,6 +46,10 @@ pub fn run() {
                     .item(&PredefinedMenuItem::quit(app, Some("Quit Flashnotes"))?)
                     .build()?;
 
+                let file_menu = SubmenuBuilder::new(app, "File")
+                    .item(&MenuItem::with_id(app, "import_sublime", "Import from Sublime...", true, None::<&str>)?)
+                    .build()?;
+
                 let edit_menu = SubmenuBuilder::new(app, "Edit")
                     .item(&PredefinedMenuItem::undo(app, Some("Undo"))?)
                     .item(&PredefinedMenuItem::redo(app, Some("Redo"))?)
@@ -64,12 +69,22 @@ pub fn run() {
 
                 let menu = MenuBuilder::new(app)
                     .item(&app_menu)
+                    .item(&file_menu)
                     .item(&edit_menu)
                     .item(&window_menu)
                     .build()?;
 
                 app.set_menu(menu)?;
             }
+
+            // Handle menu events
+            app.on_menu_event(|app_handle, event| {
+                if event.id().0 == "import_sublime" {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("import-sublime", ());
+                    }
+                }
+            });
 
             // Show the window after setup is complete
             if let Some(window) = app.get_webview_window("main") {
@@ -91,6 +106,7 @@ pub fn run() {
             commands::get_buffer_count,
             commands::get_settings,
             commands::set_setting,
+            commands::import_sublime_buffers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running flashnotes");

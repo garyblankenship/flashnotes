@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { invoke } from '@tauri-apps/api/core';
   import Editor from '$lib/components/Editor.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import EditorHeader from '$lib/components/EditorHeader.svelte';
@@ -15,6 +16,7 @@
   let isPaletteOpen = $state(false);
   let isSettingsOpen = $state(false);
   let unlistenFocusEditor: UnlistenFn | null = null;
+  let unlistenImportSublime: UnlistenFn | null = null;
 
   const debouncedSave = debounce(() => bufferStore.saveCurrentBuffer(), 500);
 
@@ -121,10 +123,25 @@ Happy writing!
     unlistenFocusEditor = await listen('focus-editor', () => {
       setTimeout(() => editorRef?.focus(), 50);
     });
+
+    // Listen for import-sublime event from menu
+    unlistenImportSublime = await listen('import-sublime', async () => {
+      try {
+        const count = await invoke<number>('import_sublime_buffers');
+        await bufferStore.loadSidebarData();
+        if (count > 0 && bufferStore.sidebarBuffers.length > 0) {
+          await bufferStore.selectBuffer(bufferStore.sidebarBuffers[0].id);
+        }
+        console.log(`Imported ${count} buffers from Sublime`);
+      } catch (error) {
+        console.error('Failed to import from Sublime:', error);
+      }
+    });
   });
 
   onDestroy(() => {
     unlistenFocusEditor?.();
+    unlistenImportSublime?.();
   });
 </script>
 
