@@ -1,0 +1,43 @@
+{
+  "name": "flashnotes",
+  "version": "0.1.0",
+  "description": "An infinite-buffer, database-backed scratchpad",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-global-shortcut": "^2",
+    "@tauri-apps/plugin-window-state": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.33.0",
+    "@codemirror/commands": "^6.6.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/search": "^6.5.0",
+    "@lezer/highlight": "^1.2.0",
+    "@tanstack/svelte-virtual": "^3.13.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.9.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "@tauri-apps/cli": "^2",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3"
+  }
+}

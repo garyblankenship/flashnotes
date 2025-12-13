@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Nord - Polar Night (backgrounds) */
+  --bg-app: #2E3440;
+  --bg-editor: #3B4252;
+  --bg-sidebar: #2E3440;
+  --bg-active: #434C5E;
+
+  /* Nord - Snow Storm (text) */
+  --text-main: #ECEFF4;
+  --text-muted: #D8DEE9;
+
+  /* Nord - Frost (accents) */
+  --accent: #88C0D0;
+  --accent-secondary: #81A1C1;
+
+  /* Nord - Borders */
+  --border-subtle: #4C566A;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+}
+
+/* Hide scrollbars globally (Zed-style) */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+/* Focus state dimming */
+body:not(:focus-within) {
+  opacity: 0.95;
+}
+
+/* Selection styling - Nord Frost cyan */
+::selection {
+  background-color: rgba(136, 192, 208, 0.3);
+}
+
+/* Custom scrollbar for elements that need it */
+.show-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.show-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Truncate text helper */
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
