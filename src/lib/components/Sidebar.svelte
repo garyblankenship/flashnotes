@@ -71,7 +71,9 @@
     if (fromIndex !== -1 && toIndex !== -1) {
       const ids = buffers.map(b => b.id);
       ids.splice(fromIndex, 1);
-      ids.splice(toIndex, 0, draggedId);
+      // Adjust target index if we removed from before it
+      const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      ids.splice(insertAt, 0, draggedId);
       onReorder(ids);
     }
 
