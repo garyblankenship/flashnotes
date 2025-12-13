@@ -5,6 +5,7 @@ mod state;
 
 use state::AppState;
 use tauri::Manager;
+use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -31,11 +32,43 @@ pub fn run() {
                 eprintln!("Failed to setup global shortcut: {}", e);
             }
 
-            // Hide from dock (macOS only) - app lives in tray
+            // Build macOS menu bar
             #[cfg(target_os = "macos")]
             {
-                use tauri::ActivationPolicy;
-                app.set_activation_policy(ActivationPolicy::Accessory);
+                let app_menu = SubmenuBuilder::new(app, "Flashnotes")
+                    .item(&PredefinedMenuItem::about(app, Some("About Flashnotes"), None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::hide(app, Some("Hide Flashnotes"))?)
+                    .item(&PredefinedMenuItem::hide_others(app, Some("Hide Others"))?)
+                    .item(&PredefinedMenuItem::show_all(app, Some("Show All"))?)
+                    .separator()
+                    .item(&PredefinedMenuItem::quit(app, Some("Quit Flashnotes"))?)
+                    .build()?;
+
+                let edit_menu = SubmenuBuilder::new(app, "Edit")
+                    .item(&PredefinedMenuItem::undo(app, Some("Undo"))?)
+                    .item(&PredefinedMenuItem::redo(app, Some("Redo"))?)
+                    .separator()
+                    .item(&PredefinedMenuItem::cut(app, Some("Cut"))?)
+                    .item(&PredefinedMenuItem::copy(app, Some("Copy"))?)
+                    .item(&PredefinedMenuItem::paste(app, Some("Paste"))?)
+                    .item(&PredefinedMenuItem::select_all(app, Some("Select All"))?)
+                    .build()?;
+
+                let window_menu = SubmenuBuilder::new(app, "Window")
+                    .item(&PredefinedMenuItem::minimize(app, Some("Minimize"))?)
+                    .item(&PredefinedMenuItem::maximize(app, Some("Zoom"))?)
+                    .separator()
+                    .item(&PredefinedMenuItem::close_window(app, Some("Close"))?)
+                    .build()?;
+
+                let menu = MenuBuilder::new(app)
+                    .item(&app_menu)
+                    .item(&edit_menu)
+                    .item(&window_menu)
+                    .build()?;
+
+                app.set_menu(menu)?;
             }
 
             // Show the window after setup is complete

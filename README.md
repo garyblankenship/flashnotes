@@ -8,6 +8,10 @@
   An infinite-buffer, database-backed scratchpad for macOS with Zed-like aesthetics.
 </p>
 
+<p align="center">
+  <img src="screenshot.png" alt="Flashnotes Screenshot" width="800">
+</p>
+
 ## Features
 
 - **Instant capture** - Global hotkey (Cmd+Shift+Space) summons the app from anywhere
