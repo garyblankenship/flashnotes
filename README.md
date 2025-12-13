@@ -1,6 +1,12 @@
-# Flashnotes
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" alt="Flashnotes" width="128" height="128">
+</p>
 
-An infinite-buffer, database-backed scratchpad for macOS with Zed-like aesthetics.
+<h1 align="center">Flashnotes</h1>
+
+<p align="center">
+  An infinite-buffer, database-backed scratchpad for macOS with Zed-like aesthetics.
+</p>
 
 ## Features
 
