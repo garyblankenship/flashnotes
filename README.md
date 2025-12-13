@@ -23,6 +23,8 @@
 | `Cmd+Shift+Space` | Toggle window visibility (global) |
 | `Cmd+P` | Open command palette |
 | `Cmd+N` | Create new buffer |
+| `Cmd+E` | Toggle markdown preview |
+| `Cmd+,` | Open settings |
 | `Escape` | Clear search / close palette |
 
 ## Development
@@ -44,3 +46,22 @@ npm run tauri build
 - **Backend:** Rust (Tauri v2)
 - **Database:** SQLite with FTS5 full-text search
 - **Font:** JetBrains Mono
+
+## Troubleshooting
+
+### Cargo permission denied
+
+If you see `Permission denied (os error 13)` when running `npm run tauri dev`:
+
+```bash
+# Check cargo permissions
+ls -la $(which cargo)
+
+# Fix permissions
+chmod +x ~/.cargo/bin/*
+
+# Or reinstall Rust (recommended)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+This usually happens when Rust was installed with `sudo` or the toolchain got corrupted.
