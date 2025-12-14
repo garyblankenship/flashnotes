@@ -21,7 +21,11 @@ Ever need to jot something down quickly without the hassle of naming files, choo
 - **Zero friction** — No files, no folders, no save buttons. Just open and type.
 - **Instant search** — Find any note in milliseconds with full-text search
 - **Markdown preview** — Toggle rendered markdown with `Cmd+E` (supports tables, GFM)
-- **Command palette** — `Cmd+P` for quick buffer switching
+- **Vim mode** — Optional vim keybindings for power users (toggle in Settings)
+- **Stay on top** — Pin the window above all others with `Cmd+Shift+T`
+- **Quick copy** — Copy entire note to clipboard with `Cmd+Shift+C`
+- **Collapsible sidebar** — Toggle with `Cmd+B` for distraction-free writing
+- **Command palette** — `Cmd+P` for quick note switching
 - **Drag & drop reorder** — Organize notes by dragging, or use `Cmd+Shift+↑/↓`
 - **Pin important notes** — Right-click to pin notes to the top
 - **Resizable sidebar** — Drag the edge to adjust width (persisted)
@@ -34,10 +38,13 @@ Ever need to jot something down quickly without the hassle of naming files, choo
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+P` | Open command palette |
-| `Cmd+N` | Create new buffer |
-| `Cmd+W` | Delete current buffer |
+| `Cmd+N` | Create new note |
+| `Cmd+W` | Delete current note |
+| `Cmd+B` | Toggle sidebar |
 | `Cmd+E` | Toggle markdown preview |
-| `Cmd+Shift+↑/↓` | Move buffer up/down |
+| `Cmd+Shift+T` | Toggle stay on top |
+| `Cmd+Shift+C` | Copy note to clipboard |
+| `Cmd+Shift+↑/↓` | Move note up/down |
 | `Cmd+,` | Open settings |
 | `Escape` | Clear search |
 

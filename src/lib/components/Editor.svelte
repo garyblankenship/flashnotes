@@ -3,21 +3,62 @@
   import { EditorView, keymap, placeholder, lineNumbers, highlightActiveLine, drawSelection, dropCursor } from '@codemirror/view';
   import { EditorState, Compartment } from '@codemirror/state';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-  import { bracketMatching, indentOnInput } from '@codemirror/language';
+  import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
   import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
   import { markdown } from '@codemirror/lang-markdown';
+  import { languages } from '@codemirror/language-data';
   import { GFM } from '@lezer/markdown';
+  import { tags } from '@lezer/highlight';
+  import { vim } from '@replit/codemirror-vim';
   import { markdownPreviewPlugin } from '$lib/codemirror/markdown-preview';
   import { markdownPreviewTheme } from '$lib/codemirror/markdown-styles';
+
+  // Nord-inspired syntax highlighting
+  const nordHighlightStyle = HighlightStyle.define([
+    { tag: tags.keyword, color: '#81A1C1' },
+    { tag: tags.operator, color: '#81A1C1' },
+    { tag: tags.special(tags.variableName), color: '#88C0D0' },
+    { tag: tags.typeName, color: '#8FBCBB' },
+    { tag: tags.atom, color: '#D08770' },
+    { tag: tags.number, color: '#B48EAD' },
+    { tag: tags.bool, color: '#D08770' },
+    { tag: tags.string, color: '#A3BE8C' },
+    { tag: tags.regexp, color: '#EBCB8B' },
+    { tag: tags.escape, color: '#D08770' },
+    { tag: tags.definition(tags.variableName), color: '#88C0D0' },
+    { tag: tags.function(tags.variableName), color: '#88C0D0' },
+    { tag: tags.labelName, color: '#81A1C1' },
+    { tag: tags.comment, color: '#616E88', fontStyle: 'italic' },
+    { tag: tags.meta, color: '#5E81AC' },
+    { tag: tags.invalid, color: '#BF616A' },
+    { tag: tags.punctuation, color: '#ECEFF4' },
+    { tag: tags.heading, color: '#88C0D0', fontWeight: 'bold' },
+    { tag: tags.heading1, color: '#88C0D0', fontWeight: 'bold', fontSize: '1.4em' },
+    { tag: tags.heading2, color: '#88C0D0', fontWeight: 'bold', fontSize: '1.2em' },
+    { tag: tags.heading3, color: '#88C0D0', fontWeight: 'bold', fontSize: '1.1em' },
+    { tag: tags.link, color: '#81A1C1', textDecoration: 'underline' },
+    { tag: tags.url, color: '#5E81AC' },
+    { tag: tags.emphasis, fontStyle: 'italic', color: '#EBCB8B' },
+    { tag: tags.strong, fontWeight: 'bold', color: '#D8DEE9' },
+    { tag: tags.strikethrough, textDecoration: 'line-through' },
+    { tag: tags.content, color: '#D8DEE9' },
+    { tag: tags.monospace, color: '#A3BE8C', fontFamily: 'inherit' },
+    { tag: tags.className, color: '#8FBCBB' },
+    { tag: tags.propertyName, color: '#88C0D0' },
+    { tag: tags.variableName, color: '#D8DEE9' },
+    { tag: tags.attributeName, color: '#8FBCBB' },
+    { tag: tags.attributeValue, color: '#A3BE8C' },
+  ]);
 
   interface Props {
     content: string;
     onchange: (content: string) => void;
     previewMode?: boolean;
+    vimMode?: boolean;
   }
 
-  let { content, onchange, previewMode = false }: Props = $props();
+  let { content, onchange, previewMode = false, vimMode = false }: Props = $props();
 
   let container: HTMLDivElement;
   let view: EditorView | null = $state(null);
@@ -96,13 +137,38 @@
     '&.cm-focused': {
       outline: 'none',
     },
+    // Vim mode styles
+    '.cm-vim-panel': {
+      backgroundColor: 'var(--bg-active)',
+      color: 'var(--text-main)',
+      padding: '2px 8px',
+      fontFamily: "var(--editor-font-family, 'JetBrains Mono', monospace)",
+      fontSize: '12px',
+    },
+    '.cm-vim-panel input': {
+      backgroundColor: 'transparent',
+      color: 'var(--text-main)',
+      border: 'none',
+      outline: 'none',
+      fontFamily: "var(--editor-font-family, 'JetBrains Mono', monospace)",
+    },
+    '.cm-fat-cursor': {
+      background: 'var(--accent) !important',
+    },
+    '&:not(.cm-focused) .cm-fat-cursor': {
+      background: 'none !important',
+      outline: '1px solid var(--accent) !important',
+    },
   }, { dark: true });
 
   const readOnlyCompartment = new Compartment();
   const previewCompartment = new Compartment();
+  const vimCompartment = new Compartment();
 
   onMount(() => {
     const extensions = [
+      // Vim mode must be first for proper key handling
+      vimCompartment.of(vimMode ? vim() : []),
       history(),
       drawSelection(),
       dropCursor(),
@@ -121,6 +187,7 @@
         indentWithTab,
       ]),
       nordTheme,
+      syntaxHighlighting(nordHighlightStyle),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !isUpdatingFromProp) {
@@ -128,8 +195,11 @@
           onchange(newContent);
         }
       }),
-      // Markdown language support with GFM (tables, strikethrough, etc.)
-      markdown({ extensions: GFM }),
+      // Markdown language support with GFM and code block highlighting
+      markdown({
+        extensions: GFM,
+        codeLanguages: languages,
+      }),
       // Preview mode extensions (toggleable)
       previewCompartment.of(previewMode ? [markdownPreviewPlugin, markdownPreviewTheme] : []),
       readOnlyCompartment.of([]),
@@ -171,6 +241,15 @@
         effects: previewCompartment.reconfigure(
           previewMode ? [markdownPreviewPlugin, markdownPreviewTheme] : []
         ),
+      });
+    }
+  });
+
+  // Toggle vim mode when prop changes
+  $effect(() => {
+    if (view) {
+      view.dispatch({
+        effects: vimCompartment.reconfigure(vimMode ? vim() : []),
       });
     }
   });

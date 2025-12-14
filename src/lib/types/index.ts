@@ -23,4 +23,7 @@ export interface AppSettings {
   line_height: number;
   preview_mode: boolean;
   sidebar_width: number;
+  sidebar_collapsed: boolean;
+  vim_mode: boolean;
+  always_on_top: boolean;
 }

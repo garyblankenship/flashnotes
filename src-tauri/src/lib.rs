@@ -4,7 +4,7 @@ mod state;
 
 use state::AppState;
 use tauri::Manager;
-use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem, AboutMetadata};
+use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem, AboutMetadata, CheckMenuItem};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -62,9 +62,29 @@ pub fn run() {
                     .item(&PredefinedMenuItem::select_all(app, Some("Select All"))?)
                     .build()?;
 
+                // Load always_on_top setting
+                let always_on_top = {
+                    let state = app.state::<AppState>();
+                    let conn = state.db.lock();
+                    db::queries::get_settings(&conn)
+                        .map(|s| s.always_on_top)
+                        .unwrap_or(false)
+                };
+
+                let stay_on_top_item = CheckMenuItem::with_id(
+                    app,
+                    "stay_on_top",
+                    "Stay on Top",
+                    true,
+                    always_on_top,
+                    Some("CmdOrCtrl+Shift+T"),
+                )?;
+
                 let window_menu = SubmenuBuilder::new(app, "Window")
                     .item(&PredefinedMenuItem::minimize(app, Some("Minimize"))?)
                     .item(&PredefinedMenuItem::maximize(app, Some("Zoom"))?)
+                    .separator()
+                    .item(&stay_on_top_item)
                     .separator()
                     .item(&PredefinedMenuItem::close_window(app, Some("Close"))?)
                     .build()?;
@@ -84,10 +104,32 @@ pub fn run() {
             }
 
             // Handle menu events
-            app.on_menu_event(|_app_handle, event| {
+            app.on_menu_event(|app_handle, event| {
                 match event.id().0.as_str() {
                     "github" => {
                         let _ = tauri_plugin_opener::open_url("https://github.com/garyblankenship/flashnotes", None::<&str>);
+                    }
+                    "stay_on_top" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            // Toggle the state
+                            let is_on_top = window.is_always_on_top().unwrap_or(false);
+                            let new_state = !is_on_top;
+                            let _ = window.set_always_on_top(new_state);
+
+                            // Update the menu item check state
+                            if let Some(menu) = app_handle.menu() {
+                                if let Some(item) = menu.get("stay_on_top") {
+                                    if let Some(check_item) = item.as_check_menuitem() {
+                                        let _ = check_item.set_checked(new_state);
+                                    }
+                                }
+                            }
+
+                            // Persist the setting
+                            let state = app_handle.state::<AppState>();
+                            let conn = state.db.lock();
+                            let _ = db::queries::set_setting(&conn, "always_on_top", if new_state { "true" } else { "false" });
+                        }
                     }
                     _ => {}
                 }
@@ -97,6 +139,18 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
+
+                // Apply always_on_top setting from database
+                let always_on_top = {
+                    let state = app.state::<AppState>();
+                    let conn = state.db.lock();
+                    db::queries::get_settings(&conn)
+                        .map(|s| s.always_on_top)
+                        .unwrap_or(false)
+                };
+                if always_on_top {
+                    let _ = window.set_always_on_top(true);
+                }
             }
 
             Ok(())
@@ -113,6 +167,7 @@ pub fn run() {
             commands::set_setting,
             commands::reorder_buffers,
             commands::cleanup_empty_buffers,
+            commands::toggle_always_on_top,
         ])
         .run(tauri::generate_context!())
         .expect("error while running flashnotes");

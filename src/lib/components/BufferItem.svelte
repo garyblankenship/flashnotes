@@ -24,10 +24,10 @@
 </script>
 
 <div
-  class="group w-full text-left px-4 py-2 flex items-center justify-between hover:bg-[--bg-active] transition-colors"
+  class="group w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-[--bg-active] transition-colors"
   class:bg-[--bg-active]={isActive}
   class:border-l-2={isActive}
-  class:border-[--accent]={isActive}
+  class:border-l-[--accent]={isActive}
   style:pointer-events={isDragging ? 'none' : 'auto'}
 >
   <div class="flex-1 min-w-0">
@@ -35,14 +35,14 @@
       {buffer.title || 'Untitled'}
     </div>
     <div class="truncate text-[11px] text-[--text-muted] mt-0.5">
-      {buffer.preview || 'Empty buffer'}
+      {buffer.preview || 'Empty note'}
     </div>
   </div>
   <div class="flex items-center gap-1 ml-2 flex-shrink-0">
     <button
       class="p-1 transition-opacity {buffer.is_pinned ? 'text-[--accent]' : 'opacity-0 group-hover:opacity-100 text-[--text-muted] hover:text-[--accent]'}"
       onclick={handleTogglePin}
-      title={buffer.is_pinned ? 'Unpin buffer' : 'Pin buffer'}
+      title={buffer.is_pinned ? 'Unpin note' : 'Pin note'}
     >
       <svg class="w-3 h-3" fill={buffer.is_pinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -51,7 +51,7 @@
     <button
       class="opacity-0 group-hover:opacity-100 text-[--text-muted] hover:text-red-400 transition-opacity p-1"
       onclick={handleDelete}
-      title="Delete buffer"
+      title="Delete note"
     >
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

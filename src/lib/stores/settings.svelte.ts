@@ -8,6 +8,9 @@ const defaults: AppSettings = {
   line_height: 1.5,
   preview_mode: false,
   sidebar_width: 256,
+  sidebar_collapsed: false,
+  vim_mode: false,
+  always_on_top: false,
 };
 
 // Available font options
@@ -79,6 +82,24 @@ function togglePreviewMode(): void {
   settings = { ...settings, preview_mode: !settings.preview_mode };
 }
 
+// Toggle vim mode (persisted)
+async function toggleVimMode(): Promise<void> {
+  const newValue = !settings.vim_mode;
+  await updateSetting('vim_mode', newValue);
+}
+
+// Toggle always on top (persisted)
+async function toggleAlwaysOnTop(): Promise<void> {
+  const newValue = !settings.always_on_top;
+  await updateSetting('always_on_top', newValue);
+}
+
+// Toggle sidebar collapsed (persisted)
+async function toggleSidebarCollapsed(): Promise<void> {
+  const newValue = !settings.sidebar_collapsed;
+  await updateSetting('sidebar_collapsed', newValue);
+}
+
 // Export store
 export const settingsStore = {
   get settings() { return settings; },
@@ -88,4 +109,7 @@ export const settingsStore = {
   loadSettings,
   updateSetting,
   togglePreviewMode,
+  toggleVimMode,
+  toggleAlwaysOnTop,
+  toggleSidebarCollapsed,
 };

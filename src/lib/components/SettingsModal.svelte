@@ -108,6 +108,30 @@
           </div>
         </div>
 
+        <div>
+          <div class="flex items-center justify-between">
+            <label for="vim-mode" class="text-xs text-[--text-muted]">Vim Mode</label>
+            <button
+              id="vim-mode"
+              type="button"
+              role="switch"
+              aria-label="Toggle vim mode"
+              aria-checked={settingsStore.settings.vim_mode}
+              onclick={() => settingsStore.toggleVimMode()}
+              class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[--accent] focus:ring-offset-2 focus:ring-offset-[--bg-sidebar]"
+              class:bg-[--accent]={settingsStore.settings.vim_mode}
+              class:bg-[--border-subtle]={!settingsStore.settings.vim_mode}
+            >
+              <span
+                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                class:translate-x-4={settingsStore.settings.vim_mode}
+                class:translate-x-0={!settingsStore.settings.vim_mode}
+              ></span>
+            </button>
+          </div>
+          <p class="text-xs text-[--text-muted] mt-1 opacity-60">Enable vim keybindings in the editor</p>
+        </div>
+
         <div class="pt-3 border-t border-[--border-subtle]">
           <p class="text-xs text-[--text-muted] mb-2">Preview</p>
           <div class="bg-[--bg-editor] rounded p-3 border border-[--border-subtle]">

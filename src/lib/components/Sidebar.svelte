@@ -57,10 +57,25 @@
 
   // Mouse-based drag (more reliable than HTML5 drag API)
   function handleMouseDown(e: MouseEvent, id: string, isPinned: boolean) {
-    if (isPinned || e.button !== 0) return;
+    if (e.button !== 0) return;
 
     // Record time to differentiate click vs drag
     mouseDownTime = Date.now();
+
+    // Pinned items can be selected but not dragged
+    if (isPinned) {
+      // Use mouseup for selection to match non-pinned behavior
+      const handlePinnedMouseUp = () => {
+        document.removeEventListener('mouseup', handlePinnedMouseUp);
+        if (Date.now() - mouseDownTime < 300) {
+          onSelect(id);
+        }
+        mouseDownTime = 0;
+      };
+      document.addEventListener('mouseup', handlePinnedMouseUp);
+      return;
+    }
+
     draggedId = id;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -142,6 +157,7 @@
   const MAX_WIDTH = 400;
   let isResizing = $state(false);
   const sidebarWidth = $derived(settingsStore.settings.sidebar_width);
+  const isCollapsed = $derived(settingsStore.settings.sidebar_collapsed);
 
   function handleResizeStart(e: MouseEvent) {
     if (e.button !== 0) return;
@@ -166,92 +182,111 @@
 
 </script>
 
-<aside class="flex flex-col border-r border-[--border-subtle] relative" style:width="{sidebarWidth}px" aria-label="Buffer sidebar">
-  <!-- Screen reader announcements -->
-  <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
-    {liveAnnouncement}
-  </div>
+{#if isCollapsed}
+  <!-- Collapsed sidebar - just a thin strip with expand button -->
+  <aside class="flex flex-col border-r border-[--border-subtle] w-10" aria-label="Sidebar (collapsed)">
+    <!-- Drag region for traffic lights area -->
+    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move"></div>
 
-  <!-- Drag region for traffic lights area -->
-  <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move"></div>
-
-  <!-- Search Bar -->
-  <div class="px-3 pb-2">
-    <input
-      type="search"
-      placeholder="Search buffers..."
-      value={searchInput}
-      oninput={handleSearchInput}
-      aria-label="Search buffers"
-      class="w-full px-3 py-1.5 text-xs rounded bg-[--bg-active] border border-[--border-subtle] text-[--text-main] placeholder:text-[--text-muted] focus:outline-none focus:border-[--accent]"
-    />
-  </div>
-
-  <!-- Buffer List -->
-  <div class="flex-1 overflow-y-auto" role="list" aria-label="Buffers">
-    {#if isSearching}
-      <SearchResults
-        results={searchResults}
-        {activeBufferId}
-        {onSelect}
-      />
-    {:else}
-      {#each buffers as buffer (buffer.id)}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          role="listitem"
-          data-buffer-id={buffer.id}
-          aria-label="{buffer.title}{buffer.is_pinned ? ' (pinned)' : ''}"
-          onmousedown={(e) => handleMouseDown(e, buffer.id, buffer.is_pinned)}
-          class="transition-all select-none"
-          class:opacity-50={draggedId === buffer.id && isDragging}
-          class:border-t-2={dropTargetId === buffer.id && insertPosition === 'before'}
-          class:border-b-2={dropTargetId === buffer.id && insertPosition === 'after'}
-          class:border-[--accent]={dropTargetId === buffer.id}
-          class:cursor-grab={!buffer.is_pinned && !isDragging}
-          class:cursor-grabbing={isDragging}
-        >
-          <BufferItem
-            {buffer}
-            isActive={buffer.id === activeBufferId}
-            isDragging={draggedId === buffer.id && isDragging}
-            onDelete={() => onDelete(buffer.id)}
-            onTogglePin={() => onTogglePin(buffer.id)}
-          />
-        </div>
-      {/each}
-      {#if buffers.length === 0}
-        <div class="px-4 py-8 text-center text-xs text-[--text-muted]">
-          No buffers yet
-          <br />
-          <button
-            class="mt-2 text-[--accent] hover:underline"
-            onclick={onCreate}
-          >
-            Create one
-          </button>
-        </div>
-      {/if}
-    {/if}
-  </div>
-
-  <!-- Sidebar Footer -->
-  <div class="h-10 border-t border-[--border-subtle] flex items-center justify-between px-4">
-    <span class="text-xs text-[--text-muted]">{bufferCount} buffers</span>
+    <!-- Expand button -->
     <button
-      class="text-xs text-[--text-muted] hover:text-[--accent] transition-colors"
-      onclick={onCreate}
-      title="New buffer (⌘N)"
+      onclick={() => settingsStore.toggleSidebarCollapsed()}
+      class="flex-1 flex items-start justify-center pt-2 text-[--text-muted] hover:text-[--accent] transition-colors"
+      title="Expand sidebar (⌘B)"
     >
-      + New
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+      </svg>
     </button>
-  </div>
+  </aside>
+{:else}
+  <aside class="flex flex-col border-r border-[--border-subtle] relative" style:width="{sidebarWidth}px" aria-label="Note sidebar">
+    <!-- Screen reader announcements -->
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {liveAnnouncement}
+    </div>
 
-  <!-- Resize Handle -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    onmousedown={handleResizeStart}
-    class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[--accent] transition-colors"
-    class:bg-[--accent]={isResizing}
-  ></div>
-</aside>
+    <!-- Drag region for traffic lights area -->
+    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move"></div>
+
+    <!-- Search Bar -->
+    <div class="px-3 pb-2">
+      <input
+        type="search"
+        placeholder="Search notes..."
+        value={searchInput}
+        oninput={handleSearchInput}
+        aria-label="Search notes"
+        class="w-full px-3 py-2 text-sm rounded bg-[--bg-active] border border-[--border-subtle] text-[--text-main] placeholder:text-[--text-muted] focus:outline-none focus:border-[--accent]"
+      />
+    </div>
+
+    <!-- Note List -->
+    <div class="flex-1 overflow-y-auto" role="list" aria-label="Notes">
+      {#if isSearching}
+        <SearchResults
+          results={searchResults}
+          {activeBufferId}
+          {onSelect}
+        />
+      {:else}
+        {#each buffers as buffer (buffer.id)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            role="listitem"
+            data-buffer-id={buffer.id}
+            aria-label="{buffer.title}{buffer.is_pinned ? ' (pinned)' : ''}"
+            onmousedown={(e) => handleMouseDown(e, buffer.id, buffer.is_pinned)}
+            class="transition-all select-none"
+            class:opacity-50={draggedId === buffer.id && isDragging}
+            class:border-t-2={dropTargetId === buffer.id && insertPosition === 'before'}
+            class:border-b-2={dropTargetId === buffer.id && insertPosition === 'after'}
+            class:border-[--accent]={dropTargetId === buffer.id}
+            class:cursor-grab={!buffer.is_pinned && !isDragging}
+            class:cursor-grabbing={isDragging}
+          >
+            <BufferItem
+              {buffer}
+              isActive={buffer.id === activeBufferId}
+              isDragging={draggedId === buffer.id && isDragging}
+              onDelete={() => onDelete(buffer.id)}
+              onTogglePin={() => onTogglePin(buffer.id)}
+            />
+          </div>
+        {/each}
+        {#if buffers.length === 0}
+          <div class="px-4 py-8 text-center text-xs text-[--text-muted]">
+            No notes yet
+            <br />
+            <button
+              class="mt-2 text-[--accent] hover:underline"
+              onclick={onCreate}
+            >
+              Create one
+            </button>
+          </div>
+        {/if}
+      {/if}
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="h-10 border-t border-[--border-subtle] flex items-center justify-between px-4">
+      <span class="text-xs text-[--text-muted]">{bufferCount} notes</span>
+      <button
+        class="text-xs text-[--text-muted] hover:text-[--accent] transition-colors"
+        onclick={onCreate}
+        title="New note (⌘N)"
+      >
+        + New
+      </button>
+    </div>
+
+    <!-- Resize Handle -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      onmousedown={handleResizeStart}
+      class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[--accent] transition-colors"
+      class:bg-[--accent]={isResizing}
+    ></div>
+  </aside>
+{/if}
