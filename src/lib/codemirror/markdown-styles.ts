@@ -92,4 +92,12 @@ export const markdownPreviewTheme = EditorView.theme({
     textDecoration: 'line-through',
     color: 'var(--text-muted)',
   },
+
+  // Tables (GFM)
+  '.cm-md-table': {
+    fontFamily: 'inherit',
+  },
+  '.cm-md-table-header': {
+    fontWeight: '600',
+  },
 }, { dark: true });

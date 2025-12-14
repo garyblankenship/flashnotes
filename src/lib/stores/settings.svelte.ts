@@ -7,6 +7,7 @@ const defaults: AppSettings = {
   font_size: 13,
   line_height: 1.5,
   preview_mode: false,
+  sidebar_width: 256,
 };
 
 // Available font options

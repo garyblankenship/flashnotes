@@ -7,6 +7,7 @@
   import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
   import { markdown } from '@codemirror/lang-markdown';
+  import { GFM } from '@lezer/markdown';
   import { markdownPreviewPlugin } from '$lib/codemirror/markdown-preview';
   import { markdownPreviewTheme } from '$lib/codemirror/markdown-styles';
 
@@ -127,8 +128,8 @@
           onchange(newContent);
         }
       }),
-      // Markdown language support (syntax highlighting)
-      markdown(),
+      // Markdown language support with GFM (tables, strikethrough, etc.)
+      markdown({ extensions: GFM }),
       // Preview mode extensions (toggleable)
       previewCompartment.of(previewMode ? [markdownPreviewPlugin, markdownPreviewTheme] : []),
       readOnlyCompartment.of([]),

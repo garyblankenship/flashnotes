@@ -3,6 +3,7 @@
   import BufferItem from './BufferItem.svelte';
   import SearchResults from './SearchResults.svelte';
   import { bufferStore } from '$lib/stores/buffers.svelte';
+  import { settingsStore } from '$lib/stores/settings.svelte';
 
   async function startWindowDrag(e: MouseEvent) {
     if (e.button === 0) {
@@ -136,9 +137,36 @@
     mouseDownTime = 0;
   }
 
+  // Sidebar resize
+  const MIN_WIDTH = 180;
+  const MAX_WIDTH = 400;
+  let isResizing = $state(false);
+  const sidebarWidth = $derived(settingsStore.settings.sidebar_width);
+
+  function handleResizeStart(e: MouseEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isResizing = true;
+
+    const handleResizeMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, moveEvent.clientX));
+      settingsStore.settings.sidebar_width = newWidth;
+    };
+
+    const handleResizeEnd = () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      isResizing = false;
+      settingsStore.updateSetting('sidebar_width', settingsStore.settings.sidebar_width);
+    };
+
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  }
+
 </script>
 
-<aside class="w-64 flex flex-col border-r border-[--border-subtle]" aria-label="Buffer sidebar">
+<aside class="flex flex-col border-r border-[--border-subtle] relative" style:width="{sidebarWidth}px" aria-label="Buffer sidebar">
   <!-- Screen reader announcements -->
   <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
     {liveAnnouncement}
@@ -218,4 +246,12 @@
       + New
     </button>
   </div>
+
+  <!-- Resize Handle -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    onmousedown={handleResizeStart}
+    class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[--accent] transition-colors"
+    class:bg-[--accent]={isResizing}
+  ></div>
 </aside>

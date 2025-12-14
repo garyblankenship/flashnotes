@@ -265,6 +265,7 @@ pub struct AppSettings {
     pub font_family: String,
     pub font_size: i32,
     pub line_height: f64,
+    pub sidebar_width: i32,
 }
 
 impl Default for AppSettings {
@@ -273,6 +274,7 @@ impl Default for AppSettings {
             font_family: "JetBrains Mono".to_string(),
             font_size: 13,
             line_height: 1.5,
+            sidebar_width: 256,
         }
     }
 }
@@ -291,6 +293,7 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings> {
             "font_family" => settings.font_family = value,
             "font_size" => settings.font_size = value.parse().unwrap_or(13),
             "line_height" => settings.line_height = value.parse().unwrap_or(1.5),
+            "sidebar_width" => settings.sidebar_width = value.parse().unwrap_or(256),
             _ => {}
         }
     }

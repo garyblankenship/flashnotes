@@ -14,6 +14,12 @@ const headingClasses: Record<string, string> = {
   SetextHeading2: 'cm-md-h2',
 };
 
+interface DecorationSpec {
+  from: number;
+  to: number;
+  decoration: Decoration;
+}
+
 // Create the ViewPlugin for markdown preview decorations
 export const markdownPreviewPlugin = ViewPlugin.fromClass(
   class {
@@ -30,7 +36,7 @@ export const markdownPreviewPlugin = ViewPlugin.fromClass(
     }
 
     buildDecorations(view: EditorView): DecorationSet {
-      const builder = new RangeSetBuilder<Decoration>();
+      const specs: DecorationSpec[] = [];
       const cursorPos = view.state.selection.main.head;
 
       // Process only visible ranges for performance
@@ -51,122 +57,181 @@ export const markdownPreviewPlugin = ViewPlugin.fromClass(
                 const text = view.state.doc.sliceString(node.from, node.to);
                 const match = text.match(/^(#{1,6})\s/);
                 if (match) {
-                  builder.add(
-                    node.from,
-                    node.from + match[0].length,
-                    Decoration.replace({})
-                  );
+                  specs.push({
+                    from: node.from,
+                    to: node.from + match[0].length,
+                    decoration: Decoration.replace({}),
+                  });
                 }
               }
               // Apply heading style to the whole line
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: headingClasses[node.name] })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: headingClasses[node.name] }),
+              });
             }
 
             // Bold - StrongEmphasis
             if (node.name === 'StrongEmphasis') {
               if (!isActiveLine) {
                 // Hide ** or __ markers
-                builder.add(node.from, node.from + 2, Decoration.replace({}));
-                builder.add(node.to - 2, node.to, Decoration.replace({}));
+                specs.push({
+                  from: node.from,
+                  to: node.from + 2,
+                  decoration: Decoration.replace({}),
+                });
+                specs.push({
+                  from: node.to - 2,
+                  to: node.to,
+                  decoration: Decoration.replace({}),
+                });
               }
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-bold' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-bold' }),
+              });
             }
 
             // Italic - Emphasis
             if (node.name === 'Emphasis') {
               if (!isActiveLine) {
                 // Hide * or _ markers
-                builder.add(node.from, node.from + 1, Decoration.replace({}));
-                builder.add(node.to - 1, node.to, Decoration.replace({}));
+                specs.push({
+                  from: node.from,
+                  to: node.from + 1,
+                  decoration: Decoration.replace({}),
+                });
+                specs.push({
+                  from: node.to - 1,
+                  to: node.to,
+                  decoration: Decoration.replace({}),
+                });
               }
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-italic' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-italic' }),
+              });
             }
 
             // Strikethrough
             if (node.name === 'Strikethrough') {
               if (!isActiveLine) {
-                builder.add(node.from, node.from + 2, Decoration.replace({}));
-                builder.add(node.to - 2, node.to, Decoration.replace({}));
+                specs.push({
+                  from: node.from,
+                  to: node.from + 2,
+                  decoration: Decoration.replace({}),
+                });
+                specs.push({
+                  from: node.to - 2,
+                  to: node.to,
+                  decoration: Decoration.replace({}),
+                });
               }
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-strikethrough' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-strikethrough' }),
+              });
             }
 
             // Inline code
             if (node.name === 'InlineCode') {
               if (!isActiveLine) {
                 // Hide backticks
-                builder.add(node.from, node.from + 1, Decoration.replace({}));
-                builder.add(node.to - 1, node.to, Decoration.replace({}));
+                specs.push({
+                  from: node.from,
+                  to: node.from + 1,
+                  decoration: Decoration.replace({}),
+                });
+                specs.push({
+                  from: node.to - 1,
+                  to: node.to,
+                  decoration: Decoration.replace({}),
+                });
               }
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-inline-code' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-inline-code' }),
+              });
             }
 
             // Code blocks
             if (node.name === 'FencedCode' || node.name === 'CodeBlock') {
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-code-block' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-code-block' }),
+              });
             }
 
             // Blockquotes
             if (node.name === 'Blockquote') {
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-blockquote' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-blockquote' }),
+              });
             }
 
             // Links - style the visible text
             if (node.name === 'Link') {
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-link' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-link' }),
+              });
             }
 
             // Horizontal rules
             if (node.name === 'HorizontalRule') {
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-hr' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-hr' }),
+              });
             }
 
             // List markers
             if (node.name === 'ListMark') {
-              builder.add(
-                node.from,
-                node.to,
-                Decoration.mark({ class: 'cm-md-list-marker' })
-              );
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-list-marker' }),
+              });
+            }
+
+            // Tables (GFM)
+            if (node.name === 'Table') {
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-table' }),
+              });
+            }
+
+            // Table headers
+            if (node.name === 'TableHeader') {
+              specs.push({
+                from: node.from,
+                to: node.to,
+                decoration: Decoration.mark({ class: 'cm-md-table-header' }),
+              });
             }
           },
         });
+      }
+
+      // Sort decorations by from position, then by to position (for stability)
+      specs.sort((a, b) => a.from - b.from || a.to - b.to);
+
+      // Build the decoration set
+      const builder = new RangeSetBuilder<Decoration>();
+      for (const spec of specs) {
+        builder.add(spec.from, spec.to, spec.decoration);
       }
 
       return builder.finish();

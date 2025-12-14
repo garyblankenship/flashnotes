@@ -22,4 +22,5 @@ export interface AppSettings {
   font_size: number;
   line_height: number;
   preview_mode: boolean;
+  sidebar_width: number;
 }

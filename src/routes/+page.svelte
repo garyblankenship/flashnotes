@@ -37,7 +37,6 @@
 
   function handleSelectBuffer(id: string) {
     bufferStore.selectBuffer(id);
-    bufferStore.clearSearch();
   }
 
   async function handleCreateBuffer() {

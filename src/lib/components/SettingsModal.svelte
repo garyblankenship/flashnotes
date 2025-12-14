@@ -39,14 +39,14 @@
   onclose={onclose}
   class="bg-transparent p-0 m-0 max-w-none max-h-none w-full h-full backdrop:bg-black/50"
 >
-  <div class="fixed inset-0 flex items-center justify-center p-4">
+  <div class="fixed inset-0 flex items-center justify-center p-4 text-[--text-main]">
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
       class="bg-[--bg-sidebar] border border-[--border-subtle] rounded-lg shadow-2xl w-full max-w-md"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between px-4 py-3 border-b border-[--border-subtle]">
-        <h2 class="text-sm font-medium">Settings</h2>
+        <h2 class="text-sm font-medium text-[--text-main]">Settings</h2>
         <button
           onclick={onclose}
           aria-label="Close settings"
@@ -87,7 +87,7 @@
               oninput={(e) => settingsStore.updateSetting('font_size', Number(e.currentTarget.value))}
               class="flex-1 accent-[--accent]"
             />
-            <span class="text-sm w-12 text-right">{settingsStore.settings.font_size}px</span>
+            <span class="text-sm w-12 text-right text-[--text-main]">{settingsStore.settings.font_size}px</span>
           </div>
         </div>
 
@@ -104,7 +104,7 @@
               oninput={(e) => settingsStore.updateSetting('line_height', Number(e.currentTarget.value))}
               class="flex-1 accent-[--accent]"
             />
-            <span class="text-sm w-12 text-right">{settingsStore.settings.line_height.toFixed(1)}</span>
+            <span class="text-sm w-12 text-right text-[--text-main]">{settingsStore.settings.line_height.toFixed(1)}</span>
           </div>
         </div>
 
