@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { invoke } from '@tauri-apps/api/core';
   import Editor from '$lib/components/Editor.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -15,8 +14,6 @@
   let editorRef: Editor | null = $state(null);
   let isPaletteOpen = $state(false);
   let isSettingsOpen = $state(false);
-  let unlistenFocusEditor: UnlistenFn | null = null;
-  let unlistenImportSublime: UnlistenFn | null = null;
 
   const debouncedSave = debounce(() => bufferStore.saveCurrentBuffer(), 500);
 
@@ -101,7 +98,6 @@ Your infinite-buffer scratchpad. No files, no saving—everything persists autom
 
 | Shortcut | Action |
 |----------|--------|
-| \`Cmd+Shift+Space\` | Toggle window (global) |
 | \`Cmd+P\` | Command palette |
 | \`Cmd+N\` | New buffer |
 | \`Cmd+W\` | Delete buffer |
@@ -149,33 +145,6 @@ Happy writing!
     } catch (error) {
       console.error('Failed to set up window focus listener:', error);
     }
-
-    // Listen for focus-editor event from global shortcut
-    unlistenFocusEditor = await listen('focus-editor', () => {
-      setTimeout(() => editorRef?.focus(), 50);
-    });
-
-    // Listen for import-sublime event from menu
-    unlistenImportSublime = await listen('import-sublime', async () => {
-      try {
-        const count = await invoke<number>('import_sublime_buffers');
-        await bufferStore.loadSidebarData();
-        // Use store directly since we're in a callback
-        const currentBuffers = bufferStore.sidebarBuffers;
-        if (count > 0 && currentBuffers.length > 0) {
-          await bufferStore.selectBuffer(currentBuffers[0].id);
-        }
-        alert(count > 0 ? `Imported ${count} buffer${count === 1 ? '' : 's'} from Sublime Text` : 'No unsaved buffers found in Sublime Text');
-      } catch (error) {
-        console.error('Failed to import from Sublime:', error);
-        alert(`Import failed: ${error}`);
-      }
-    });
-  });
-
-  onDestroy(() => {
-    unlistenFocusEditor?.();
-    unlistenImportSublime?.();
   });
 </script>
 

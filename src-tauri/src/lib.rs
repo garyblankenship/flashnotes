@@ -1,19 +1,16 @@
 mod commands;
 mod db;
-mod hotkey;
 mod state;
 
 use state::AppState;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem, AboutMetadata};
-use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // When second instance launches, focus the existing window
             if let Some(window) = app.get_webview_window("main") {
@@ -35,11 +32,6 @@ pub fn run() {
             // Manage app state
             app.manage(AppState::new(conn));
 
-            // Register global shortcut
-            if let Err(e) = hotkey::setup_global_shortcut(&app.handle()) {
-                eprintln!("Failed to setup global shortcut: {}", e);
-            }
-
             // Build macOS menu bar
             #[cfg(target_os = "macos")]
             {
@@ -59,9 +51,6 @@ pub fn run() {
                     .item(&PredefinedMenuItem::quit(app, Some("Quit Flashnotes"))?)
                     .build()?;
 
-                let file_menu = SubmenuBuilder::new(app, "File")
-                    .item(&MenuItem::with_id(app, "import_sublime", "Import from Sublime...", true, None::<&str>)?)
-                    .build()?;
 
                 let edit_menu = SubmenuBuilder::new(app, "Edit")
                     .item(&PredefinedMenuItem::undo(app, Some("Undo"))?)
@@ -86,7 +75,6 @@ pub fn run() {
 
                 let menu = MenuBuilder::new(app)
                     .item(&app_menu)
-                    .item(&file_menu)
                     .item(&edit_menu)
                     .item(&window_menu)
                     .item(&help_menu)
@@ -96,13 +84,8 @@ pub fn run() {
             }
 
             // Handle menu events
-            app.on_menu_event(|app_handle, event| {
+            app.on_menu_event(|_app_handle, event| {
                 match event.id().0.as_str() {
-                    "import_sublime" => {
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.emit("import-sublime", ());
-                        }
-                    }
                     "github" => {
                         let _ = tauri_plugin_opener::open_url("https://github.com/garyblankenship/flashnotes", None::<&str>);
                     }
@@ -128,7 +111,6 @@ pub fn run() {
             commands::toggle_pin,
             commands::get_settings,
             commands::set_setting,
-            commands::import_sublime_buffers,
             commands::reorder_buffers,
             commands::cleanup_empty_buffers,
         ])

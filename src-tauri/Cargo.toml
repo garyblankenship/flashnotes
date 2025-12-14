@@ -1,7 +1,7 @@
 [package]
 name = "flashnotes"
 version = "0.1.14"
-description = "An infinite-buffer, database-backed scratchpad"
+description = "A lightweight, free macOS app for capturing notes without saving files"
 authors = ["you"]
 edition = "2021"
 
@@ -14,7 +14,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
-tauri-plugin-global-shortcut = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
