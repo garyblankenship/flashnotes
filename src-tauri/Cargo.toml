@@ -1,6 +1,6 @@
 [package]
 name = "flashnotes"
-version = "0.1.14"
+version = "0.1.15"
 description = "A lightweight, free macOS app for capturing notes without saving files"
 authors = ["you"]
 edition = "2021"
