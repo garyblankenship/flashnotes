@@ -186,7 +186,8 @@
   <!-- Collapsed sidebar - just a thin strip with expand button -->
   <aside class="flex flex-col border-r border-[--border-subtle] w-10" aria-label="Sidebar (collapsed)">
     <!-- Drag region for traffic lights area -->
-    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move"></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move" role="presentation"></div>
 
     <!-- Expand button -->
     <button
@@ -207,7 +208,8 @@
     </div>
 
     <!-- Drag region for traffic lights area -->
-    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move"></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div onmousedown={startWindowDrag} class="h-10 flex-shrink-0 cursor-move" role="presentation"></div>
 
     <!-- Search Bar -->
     <div class="px-3 pb-2">
@@ -231,7 +233,7 @@
         />
       {:else}
         {#each buffers as buffer (buffer.id)}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
           <div
             role="listitem"
             data-buffer-id={buffer.id}

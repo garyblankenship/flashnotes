@@ -1,3 +1,7 @@
+/**
+ * Settings store - manages app settings with backend persistence
+ * Uses Svelte 5 class-based reactive pattern (consistent with BufferStore)
+ */
 import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings } from '$lib/types';
 
@@ -28,88 +32,74 @@ export const fontFamilies = [
 export const fontSizes = [10, 11, 12, 13, 14, 15, 16, 18, 20] as const;
 export const lineHeights = [1.2, 1.4, 1.5, 1.6, 1.8, 2.0] as const;
 
-// Reactive state
-let settings = $state<AppSettings>({ ...defaults });
-let isLoading = $state(false);
-let lastError = $state<string | null>(null);
+class SettingsStore {
+  settings = $state<AppSettings>({ ...defaults });
+  isLoading = $state(false);
+  lastError = $state<string | null>(null);
 
-// Error handling
-function handleError(message: string, error: unknown): void {
-  const errorMsg = error instanceof Error ? error.message : String(error);
-  lastError = `${message}: ${errorMsg}`;
-  console.error(lastError);
-}
+  private handleError(message: string, error: unknown): void {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    this.lastError = `${message}: ${errorMsg}`;
+    console.error(this.lastError);
+  }
 
-// Actions
-async function loadSettings(): Promise<void> {
-  try {
-    isLoading = true;
-    lastError = null;
-    settings = await invoke<AppSettings>('get_settings');
-    applyToDocument();
-  } catch (error) {
-    handleError('Failed to load settings', error);
-    settings = { ...defaults };
-  } finally {
-    isLoading = false;
+  async loadSettings(): Promise<void> {
+    try {
+      this.isLoading = true;
+      this.lastError = null;
+      this.settings = await invoke<AppSettings>('get_settings');
+      this.applyToDocument();
+    } catch (error) {
+      this.handleError('Failed to load settings', error);
+      this.settings = { ...defaults };
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async updateSetting<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ): Promise<void> {
+    try {
+      this.lastError = null;
+      await invoke('set_setting', { key, value: String(value) });
+      this.settings = { ...this.settings, [key]: value };
+      this.applyToDocument();
+    } catch (error) {
+      this.handleError(`Failed to update ${key}`, error);
+    }
+  }
+
+  private applyToDocument(): void {
+    const root = document.documentElement;
+    root.style.setProperty('--editor-font-family', `'${this.settings.font_family}', monospace`);
+    root.style.setProperty('--editor-font-size', `${this.settings.font_size}px`);
+    root.style.setProperty('--editor-line-height', String(this.settings.line_height));
+  }
+
+  // Toggle preview mode (client-side only, no backend persistence)
+  togglePreviewMode(): void {
+    this.settings = { ...this.settings, preview_mode: !this.settings.preview_mode };
+  }
+
+  // Toggle vim mode (persisted)
+  async toggleVimMode(): Promise<void> {
+    const newValue = !this.settings.vim_mode;
+    await this.updateSetting('vim_mode', newValue);
+  }
+
+  // Toggle always on top (persisted)
+  async toggleAlwaysOnTop(): Promise<void> {
+    const newValue = !this.settings.always_on_top;
+    await this.updateSetting('always_on_top', newValue);
+  }
+
+  // Toggle sidebar collapsed (persisted)
+  async toggleSidebarCollapsed(): Promise<void> {
+    const newValue = !this.settings.sidebar_collapsed;
+    await this.updateSetting('sidebar_collapsed', newValue);
   }
 }
 
-async function updateSetting<K extends keyof AppSettings>(
-  key: K,
-  value: AppSettings[K]
-): Promise<void> {
-  try {
-    lastError = null;
-    await invoke('set_setting', { key, value: String(value) });
-    settings = { ...settings, [key]: value };
-    applyToDocument();
-  } catch (error) {
-    handleError(`Failed to update ${key}`, error);
-  }
-}
-
-// Apply settings to CSS custom properties
-function applyToDocument(): void {
-  const root = document.documentElement;
-  root.style.setProperty('--editor-font-family', `'${settings.font_family}', monospace`);
-  root.style.setProperty('--editor-font-size', `${settings.font_size}px`);
-  root.style.setProperty('--editor-line-height', String(settings.line_height));
-}
-
-// Toggle preview mode (client-side only, no backend persistence)
-function togglePreviewMode(): void {
-  settings = { ...settings, preview_mode: !settings.preview_mode };
-}
-
-// Toggle vim mode (persisted)
-async function toggleVimMode(): Promise<void> {
-  const newValue = !settings.vim_mode;
-  await updateSetting('vim_mode', newValue);
-}
-
-// Toggle always on top (persisted)
-async function toggleAlwaysOnTop(): Promise<void> {
-  const newValue = !settings.always_on_top;
-  await updateSetting('always_on_top', newValue);
-}
-
-// Toggle sidebar collapsed (persisted)
-async function toggleSidebarCollapsed(): Promise<void> {
-  const newValue = !settings.sidebar_collapsed;
-  await updateSetting('sidebar_collapsed', newValue);
-}
-
-// Export store
-export const settingsStore = {
-  get settings() { return settings; },
-  get isLoading() { return isLoading; },
-  get lastError() { return lastError; },
-
-  loadSettings,
-  updateSetting,
-  togglePreviewMode,
-  toggleVimMode,
-  toggleAlwaysOnTop,
-  toggleSidebarCollapsed,
-};
+export const settingsStore = new SettingsStore();
