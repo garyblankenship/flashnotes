@@ -1,18 +1,53 @@
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
+use tracing::error;
+
+/// Database initialization error
+#[derive(Debug)]
+pub struct DbInitError {
+    pub message: String,
+    pub details: String,
+}
+
+impl std::fmt::Display for DbInitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.message, self.details)
+    }
+}
+
+impl std::error::Error for DbInitError {}
 
 /// Get the database path in the app's data directory
-pub fn get_db_path(app: &AppHandle) -> PathBuf {
+pub fn get_db_path(app: &AppHandle) -> std::result::Result<PathBuf, DbInitError> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .expect("Failed to get app data directory");
+        .map_err(|e| DbInitError {
+            message: "Failed to get app data directory".to_string(),
+            details: e.to_string(),
+        })?;
 
     // Ensure directory exists
-    std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
+    std::fs::create_dir_all(&app_data_dir).map_err(|e| DbInitError {
+        message: "Failed to create app data directory".to_string(),
+        details: e.to_string(),
+    })?;
 
-    app_data_dir.join("flashnotes.db")
+    Ok(app_data_dir.join("flashnotes.db"))
+}
+
+/// Get app data directory
+pub fn get_app_data_dir(app: &AppHandle) -> std::result::Result<PathBuf, DbInitError> {
+    app.path()
+        .app_data_dir()
+        .map_err(|e| DbInitError {
+            message: "Failed to get app data directory".to_string(),
+            details: e.to_string(),
+        })
 }
 
 /// Create a new database connection with optimized settings
@@ -50,4 +85,37 @@ pub fn create_memory_connection() -> Result<Connection> {
     )?;
 
     Ok(conn)
+}
+
+/// Create a connection pool for read operations
+pub fn create_reader_pool(path: &PathBuf) -> std::result::Result<Pool<SqliteConnectionManager>, DbInitError> {
+    let manager = SqliteConnectionManager::file(path)
+        .with_init(|conn| {
+            conn.execute_batch(
+                "
+                PRAGMA trusted_schema = ON;
+                PRAGMA journal_mode = WAL;
+                PRAGMA synchronous = NORMAL;
+                PRAGMA foreign_keys = ON;
+                PRAGMA cache_size = -32000;
+                PRAGMA busy_timeout = 5000;
+                PRAGMA temp_store = MEMORY;
+                PRAGMA query_only = ON;
+                "
+            )?;
+            Ok(())
+        });
+
+    Pool::builder()
+        .max_size(4) // 4 reader connections
+        .min_idle(Some(1))
+        .connection_timeout(Duration::from_secs(5))
+        .build(manager)
+        .map_err(|e| {
+            error!("Failed to create reader pool: {}", e);
+            DbInitError {
+                message: "Failed to create database connection pool".to_string(),
+                details: e.to_string(),
+            }
+        })
 }
