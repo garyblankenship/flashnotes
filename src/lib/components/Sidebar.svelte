@@ -34,6 +34,21 @@
   const activeBufferId = $derived(bufferStore.activeBufferId);
   const bufferCount = $derived(bufferStore.bufferCount);
   const isSearching = $derived(searchQuery.length > 0);
+  const hasMoreBuffers = $derived(bufferStore.hasMoreBuffers);
+  const isLoadingMore = $derived(bufferStore.isLoadingMore);
+
+  let listContainer: HTMLDivElement | null = $state(null);
+
+  // Handle scroll to load more
+  function handleScroll(e: Event) {
+    const target = e.target as HTMLDivElement;
+    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+
+    // Load more when within 100px of bottom
+    if (scrollBottom < 100 && hasMoreBuffers && !isLoadingMore && !isSearching) {
+      bufferStore.loadMoreBuffers();
+    }
+  }
 
   let searchInput = $state('');
   let draggedId = $state<string | null>(null);
@@ -224,7 +239,13 @@
     </div>
 
     <!-- Note List -->
-    <div class="flex-1 overflow-y-auto" role="list" aria-label="Notes">
+    <div
+      bind:this={listContainer}
+      onscroll={handleScroll}
+      class="flex-1 overflow-y-auto"
+      role="list"
+      aria-label="Notes"
+    >
       {#if isSearching}
         <SearchResults
           results={searchResults}
@@ -266,6 +287,16 @@
             >
               Create one
             </button>
+          </div>
+        {/if}
+
+        {#if isLoadingMore}
+          <div class="px-4 py-2 text-center text-xs text-[--text-muted]">
+            Loading more...
+          </div>
+        {:else if hasMoreBuffers && buffers.length > 0}
+          <div class="px-4 py-2 text-center text-xs text-[--text-muted]">
+            Scroll for more
           </div>
         {/if}
       {/if}
