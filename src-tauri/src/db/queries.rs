@@ -1,5 +1,6 @@
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 /// Summary of a buffer for sidebar display
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,19 +53,47 @@ pub fn extract_title_preview(content: &str) -> (String, String) {
     (title, preview)
 }
 
+/// Sanitize and validate search query for FTS5
+/// Returns None if the query contains suspicious characters
+pub fn sanitize_search_query(query: &str) -> Option<String> {
+    let trimmed = query.trim();
+
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Whitelist validation: only allow alphanumeric, whitespace, hyphen, underscore
+    // This prevents FTS5 injection attacks
+    for ch in trimmed.chars() {
+        if !ch.is_alphanumeric() && !ch.is_whitespace() && ch != '-' && ch != '_' {
+            // Log suspicious input
+            warn!("Search query contains disallowed character '{}': {:?}", ch, trimmed);
+            return None;
+        }
+    }
+
+    // Maximum query length to prevent abuse
+    if trimmed.len() > 500 {
+        warn!("Search query too long ({} chars)", trimmed.len());
+        return None;
+    }
+
+    Some(trimmed.to_string())
+}
+
 /// Get sidebar buffers (non-archived, sorted by pinned then sort_order then accessed_at)
-pub fn get_sidebar_buffers(conn: &Connection, limit: usize) -> Result<Vec<BufferSummary>> {
+pub fn get_sidebar_buffers(conn: &Connection, limit: usize, offset: usize) -> Result<Vec<BufferSummary>> {
     let mut stmt = conn.prepare(
         "
         SELECT id, content, updated_at, is_pinned
         FROM buffers
         WHERE is_archived = 0
         ORDER BY is_pinned DESC, sort_order ASC, accessed_at DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
         "
     )?;
 
-    let rows = stmt.query_map([limit as i64], |row| {
+    let rows = stmt.query_map([limit as i64, offset as i64], |row| {
         let id: String = row.get(0)?;
         let content: String = row.get(1)?;
         let updated_at: i64 = row.get(2)?;
@@ -85,12 +114,14 @@ pub fn get_sidebar_buffers(conn: &Connection, limit: usize) -> Result<Vec<Buffer
 }
 
 /// Search buffers using FTS5
+/// Note: query should already be sanitized via sanitize_search_query
 pub fn search_buffers(conn: &Connection, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    // Escape special FTS5 characters and add prefix matching
+    // Escape remaining special FTS5 characters and add prefix matching
+    // The query has already been validated by sanitize_search_query
     let safe_query = query
         .replace('"', "\"\"")
         .split_whitespace()
@@ -238,7 +269,7 @@ pub fn toggle_pin(conn: &Connection, id: &str) -> Result<bool> {
 }
 
 /// Reorder buffers by setting sort_order based on provided ID list
-/// Wrapped in transaction for 10-50× performance improvement
+/// Wrapped in transaction for 10-50x performance improvement
 pub fn reorder_buffers(conn: &mut Connection, ids: &[String]) -> Result<()> {
     let tx = conn.transaction()?;
     for (index, id) in ids.iter().enumerate() {
@@ -297,9 +328,24 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings> {
         let (key, value) = row?;
         match key.as_str() {
             "font_family" => settings.font_family = value,
-            "font_size" => settings.font_size = value.parse().unwrap_or(13),
-            "line_height" => settings.line_height = value.parse().unwrap_or(1.5),
-            "sidebar_width" => settings.sidebar_width = value.parse().unwrap_or(256),
+            "font_size" => {
+                settings.font_size = value.parse().unwrap_or_else(|_| {
+                    warn!("Failed to parse font_size setting '{}', using default 13", value);
+                    13
+                });
+            }
+            "line_height" => {
+                settings.line_height = value.parse().unwrap_or_else(|_| {
+                    warn!("Failed to parse line_height setting '{}', using default 1.5", value);
+                    1.5
+                });
+            }
+            "sidebar_width" => {
+                settings.sidebar_width = value.parse().unwrap_or_else(|_| {
+                    warn!("Failed to parse sidebar_width setting '{}', using default 256", value);
+                    256
+                });
+            }
             "sidebar_collapsed" => settings.sidebar_collapsed = value == "true",
             "vim_mode" => settings.vim_mode = value == "true",
             "always_on_top" => settings.always_on_top = value == "true",
