@@ -1,6 +1,70 @@
-import { ViewPlugin, Decoration, type DecorationSet, EditorView, type ViewUpdate } from '@codemirror/view';
+import { ViewPlugin, Decoration, type DecorationSet, EditorView, type ViewUpdate, WidgetType } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder } from '@codemirror/state';
+
+// Widget to render a table as HTML
+class TableWidget extends WidgetType {
+  constructor(private tableText: string) {
+    super();
+  }
+
+  eq(other: TableWidget) {
+    return this.tableText === other.tableText;
+  }
+
+  toDOM() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-md-table-widget';
+
+    const lines = this.tableText.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      wrapper.textContent = this.tableText;
+      return wrapper;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'cm-md-table-rendered';
+
+    // Parse header
+    const headerCells = this.parseCells(lines[0]);
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    for (const cell of headerCells) {
+      const th = document.createElement('th');
+      th.textContent = cell.trim();
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Skip separator line (lines[1]), parse body
+    const tbody = document.createElement('tbody');
+    for (let i = 2; i < lines.length; i++) {
+      const cells = this.parseCells(lines[i]);
+      const tr = document.createElement('tr');
+      for (let j = 0; j < headerCells.length; j++) {
+        const td = document.createElement('td');
+        td.textContent = (cells[j] || '').trim();
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+
+    return wrapper;
+  }
+
+  private parseCells(line: string): string[] {
+    // Remove leading/trailing pipes and split
+    const trimmed = line.replace(/^\||\|$/g, '');
+    return trimmed.split('|');
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
 
 // Map heading levels to CSS classes
 const headingClasses: Record<string, string> = {
@@ -204,22 +268,31 @@ export const markdownPreviewPlugin = ViewPlugin.fromClass(
               });
             }
 
-            // Tables (GFM)
+            // Tables (GFM) - render as HTML table widget when not editing
             if (node.name === 'Table') {
-              specs.push({
-                from: node.from,
-                to: node.to,
-                decoration: Decoration.mark({ class: 'cm-md-table' }),
-              });
-            }
+              const tableStart = view.state.doc.lineAt(node.from);
+              const tableEnd = view.state.doc.lineAt(node.to);
+              const cursorLine = view.state.doc.lineAt(cursorPos);
+              const isCursorInTable = cursorLine.number >= tableStart.number && cursorLine.number <= tableEnd.number;
 
-            // Table headers
-            if (node.name === 'TableHeader') {
-              specs.push({
-                from: node.from,
-                to: node.to,
-                decoration: Decoration.mark({ class: 'cm-md-table-header' }),
-              });
+              if (!isCursorInTable) {
+                // Replace entire table with rendered widget
+                const tableText = view.state.doc.sliceString(node.from, node.to);
+                specs.push({
+                  from: node.from,
+                  to: node.to,
+                  decoration: Decoration.replace({
+                    widget: new TableWidget(tableText),
+                  }),
+                });
+              } else {
+                // Just apply basic styling when editing
+                specs.push({
+                  from: node.from,
+                  to: node.to,
+                  decoration: Decoration.mark({ class: 'cm-md-table' }),
+                });
+              }
             }
           },
         });

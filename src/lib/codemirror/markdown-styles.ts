@@ -93,11 +93,35 @@ export const markdownPreviewTheme = EditorView.theme({
     color: 'var(--text-muted)',
   },
 
-  // Tables (GFM)
+  // Tables (GFM) - raw markdown when editing
   '.cm-md-table': {
-    fontFamily: 'inherit',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.9em',
   },
-  '.cm-md-table-header': {
+
+  // Rendered table widget
+  '.cm-md-table-widget': {
+    display: 'block',
+    margin: '8px 0',
+    overflow: 'auto',
+  },
+  '.cm-md-table-rendered': {
+    borderCollapse: 'collapse',
+    width: '100%',
+    fontSize: '0.9em',
+  },
+  '.cm-md-table-rendered th': {
+    backgroundColor: 'var(--bg-active)',
     fontWeight: '600',
+    textAlign: 'left',
+    padding: '8px 12px',
+    borderBottom: '2px solid var(--border-subtle)',
+  },
+  '.cm-md-table-rendered td': {
+    padding: '6px 12px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  '.cm-md-table-rendered tr:hover td': {
+    backgroundColor: 'var(--bg-hover)',
   },
 }, { dark: true });
