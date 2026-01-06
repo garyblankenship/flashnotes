@@ -8,6 +8,7 @@
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import ErrorModal from '$lib/components/ErrorModal.svelte';
   import { bufferStore } from '$lib/stores/buffers.svelte';
   import { settingsStore } from '$lib/stores/settings.svelte';
   import { toastStore } from '$lib/stores/toast.svelte';
@@ -42,7 +43,7 @@
     }
   }
 
-  const debouncedSave = debounce(() => bufferStore.saveCurrentBuffer(), 500);
+  const debouncedSave = debounce(() => bufferStore.saveCurrentBuffer(), 2000);
 
   // Derived state
   const activeTitle = $derived(
@@ -201,3 +202,9 @@
 </div>
 
 <Toast />
+
+<ErrorModal
+  error={bufferStore.saveError}
+  onRetry={() => bufferStore.retrySave()}
+  onDismiss={() => bufferStore.clearErrors()}
+/>
