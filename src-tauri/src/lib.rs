@@ -3,12 +3,97 @@ mod db;
 mod state;
 
 use state::AppState;
+use std::path::PathBuf;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem, MenuItem, AboutMetadata, CheckMenuItem};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tracing::{info, error, warn};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+/// Initialize logging with file output and daily rotation
+fn init_logging(app_data_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let log_dir = app_data_dir.join("logs");
+    std::fs::create_dir_all(&log_dir)?;
+
+    let file_appender = RollingFileAppender::new(
+        Rotation::DAILY,
+        log_dir,
+        "flashnotes.log",
+    );
+
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    // Keep the guard alive for the lifetime of the app
+    // by leaking it (acceptable for app-lifetime resources)
+    Box::leak(Box::new(_guard));
+
+    tracing_subscriber::registry()
+        .with(EnvFilter::new("flashnotes=info,warn"))
+        .with(fmt::layer().with_writer(non_blocking).with_ansi(false))
+        .with(fmt::layer().with_writer(std::io::stderr))
+        .init();
+
+    Ok(())
+}
+
+/// Database initialization result
+struct DbInit {
+    writer: rusqlite::Connection,
+    reader_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
+    app_data_dir: PathBuf,
+}
+
+/// Initialize database with proper error handling
+fn init_database(app: &tauri::AppHandle) -> Result<DbInit, String> {
+    let app_data_dir = db::connection::get_app_data_dir(app)
+        .map_err(|e| format!("{}", e))?;
+
+    let db_path = db::connection::get_db_path(app)
+        .map_err(|e| format!("{}", e))?;
+
+    info!("Database path: {:?}", db_path);
+
+    // Create writer connection
+    let writer = db::connection::create_connection(&db_path)
+        .map_err(|e| format!("Failed to create database connection: {}", e))?;
+
+    // Initialize schema
+    db::schema::initialize_schema(&writer)
+        .map_err(|e| format!("Failed to initialize database schema: {}", e))?;
+
+    // Create reader pool
+    let reader_pool = db::connection::create_reader_pool(&db_path)
+        .map_err(|e| format!("{}", e))?;
+
+    // Check if backup is needed (daily backup on startup)
+    if db::backup::needs_backup(&app_data_dir) {
+        match db::backup::create_backup(&writer, &app_data_dir) {
+            Ok(path) => info!("Daily backup created: {:?}", path),
+            Err(e) => warn!("Failed to create daily backup: {}", e),
+        }
+    }
+
+    Ok(DbInit {
+        writer,
+        reader_pool,
+        app_data_dir,
+    })
+}
+
+/// Show error dialog to user
+fn show_error_dialog(app: &tauri::AppHandle, title: &str, message: &str) {
+    let dialog = app.dialog();
+    dialog.message(message)
+        .title(title)
+        .kind(MessageDialogKind::Error)
+        .blocking_show();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -19,18 +104,44 @@ pub fn run() {
             }
         }))
         .setup(|app| {
-            // Initialize database
-            let db_path = db::connection::get_db_path(&app.handle());
-            println!("Database path: {:?}", db_path);
+            // Initialize logging first (best effort)
+            if let Ok(app_data_dir) = app.path().app_data_dir() {
+                if let Err(e) = init_logging(&app_data_dir) {
+                    eprintln!("Warning: Failed to initialize logging: {}", e);
+                }
+            }
 
-            let conn = db::connection::create_connection(&db_path)
-                .expect("Failed to create database connection");
+            info!("Flashnotes starting up");
 
-            db::schema::initialize_schema(&conn)
-                .expect("Failed to initialize database schema");
+            // Initialize database with proper error handling
+            let db_init = match init_database(&app.handle()) {
+                Ok(init) => init,
+                Err(e) => {
+                    error!("Database initialization failed: {}", e);
+                    show_error_dialog(
+                        &app.handle(),
+                        "Database Error",
+                        &format!(
+                            "Failed to initialize the database.\n\n\
+                            Error: {}\n\n\
+                            Please check:\n\
+                            - You have write permissions to the app data directory\n\
+                            - There is sufficient disk space\n\
+                            - The database file is not corrupted\n\n\
+                            The application will now exit.",
+                            e
+                        ),
+                    );
+                    return Err(e.into());
+                }
+            };
 
             // Manage app state
-            app.manage(AppState::new(conn));
+            app.manage(AppState::new(
+                db_init.writer,
+                db_init.reader_pool,
+                db_init.app_data_dir,
+            ));
 
             // Build macOS menu bar
             #[cfg(target_os = "macos")]
@@ -65,7 +176,7 @@ pub fn run() {
                 // Load always_on_top setting
                 let always_on_top = {
                     let state = app.state::<AppState>();
-                    let conn = state.db.lock();
+                    let conn = state.writer.lock();
                     db::queries::get_settings(&conn)
                         .map(|s| s.always_on_top)
                         .unwrap_or(false)
@@ -127,7 +238,7 @@ pub fn run() {
 
                             // Persist the setting
                             let state = app_handle.state::<AppState>();
-                            let conn = state.db.lock();
+                            let conn = state.writer.lock();
                             let _ = db::queries::set_setting(&conn, "always_on_top", if new_state { "true" } else { "false" });
                         }
                     }
@@ -143,7 +254,7 @@ pub fn run() {
                 // Apply always_on_top setting from database
                 let always_on_top = {
                     let state = app.state::<AppState>();
-                    let conn = state.db.lock();
+                    let conn = state.writer.lock();
                     db::queries::get_settings(&conn)
                         .map(|s| s.always_on_top)
                         .unwrap_or(false)
@@ -153,6 +264,7 @@ pub fn run() {
                 }
             }
 
+            info!("Flashnotes startup complete");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
