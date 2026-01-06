@@ -1,0 +1,29 @@
+# Build artifacts
+dist/
+build/
+target/
+node_modules/
+.svelte-kit/
+.tauri/
+
+# Tests and mocks
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+__tests__/
+tests/
+mocks/
+fixtures/
+
+# Documentation and configs (keep minimal config)
+*.md
+!README.md
+.git/
+.github/
+.vscode/
+
+# Generated files
+*.lock
+*.log
+*.generated.*
